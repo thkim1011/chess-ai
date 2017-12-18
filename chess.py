@@ -51,13 +51,29 @@ class Board:
             board += border
         return board
 
+    def get_piece(self, position):
+        return self.board[position[0]][position[1]]
+
+    def set_piece(self, position, piece):
+        self.board[position[0]][position[1]] = piece
+
+    def has_piece(self, position):
+        return get_piece(position) != None
+
+    def is_blocked(self, piece, position):
+        # Check forward/backward
+        if 
+        
+        
+
+
 """
     def make_move(self, move):
         try:
 
             """
 
-        
+   
         
         
 # Move class
@@ -65,22 +81,28 @@ class Move:
     def __init__(self, piece, position):
         self.piece = piece
         self.position = position
+    
+
+
+
+
 
 # Pieces
 class Piece:
-    def __init__(self, color, position):
+    def __init__(self, color, position, board):
         assert color == "black" or color == "white"
         assert 0 <= position[0] and position[0] < 8
         assert 0 <= position[1] and position[1] < 8
         self.color = color
         self.position = position
+        self.board = board
 
 
 class Pawn(Piece):
     name = "pawn"
     char = "P"
 
-    def __init__(self, color, position):
+    def __init__(*args):
         """ Constructs a pawn.
         >>> pawn = Pawn("black", (0, 1))
         >>> pawn.name
@@ -90,12 +112,26 @@ class Pawn(Piece):
         >>> pawn.position
         (0, 1)
         """
-        Piece.__init__(self, color, position)
+        Piece.__init__(*args) 
 
     def validate(self, move):
         assert isinstance(move, Move)
+        if self.color == "white":
+            # Forward 1
+            if move.position[0] == self.position[0] + 1\
+                    and !self.board.has_piece(move.position):
+                return True
+            # Forward 2
+            elif move.position[0] == self.position[0] + 2\
+                    and !self.board.has_piece(move.position)\
+                    and !self.board.has_piece(move.position - (0, 1)) 
+
+            # Forward 2
         if self.position[1] == 1 and self.color == "white": 
             
+            if move[0] == move + 1
+
+           
             
 
 
