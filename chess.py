@@ -3,10 +3,117 @@
 # Import
 
 
+# Functions
+def locate(pos_str):
+    """
+    Gives the position based on the string. In this program, all positions
+    are represented as tuples in the form (ROW, COLUMN) of the array. 
+    This function aims to ease the use of positions within this program.
+    >>> locate("a1")
+    (0, 0)
+    >>> locate("a2")
+    (1, 0)
+    >>> locate("a3")
+    (2, 0)
+    >>> locate("e4")
+    (3, 4)
+    >>> locate("f8")
+    (7, 5)
+    >>> locate("g8")
+    (7, 6)
+    >>> locate("h8")
+    (7, 7)
+    """
+    return ("12345678".index(pos_str[1]), "abcdefgh".index(pos_str[0]))
+
+# TODO: Change tuple position to string position in doctest.
+def piece_is_blocked_straight(piece, position):
+    """
+    Returns True if the straight path of piece to position is blocked.
+    It does not check for whether there is a piece at the final destination
+    since a move may be a valid attack. In addition, if position is not a
+    straight movement of the initial, then True is returned since the piece
+    is "blocked"
+    >>> board = Board()
+    >>> pawn1 = board.get_piece((1, 0))
+    >>> piece_is_blocked_straight(pawn1, (3, 0))
+    False
+    >>> piece_is_blocked_straight(pawn1, (1, 1))
+    False
+    >>> piece_is_blocked_straight(pawn1, (6, 0))
+    False
+    >>> piece_is_blocked_straight(pawn1, (7, 0))
+    True
+    """
+    row_change = position[0] - piece.position[0]
+    col_change = position[1] - piece.position[1]
+
+    n = abs(row_change)
+    m = abs(col_change)
+
+    if n == 0 or m == 0:
+        row_unit = 0 if n == 0 else row_change // n
+        col_unit = 0 if m == 0 else col_change // m
+        path_length = max(n, m)
+
+        for i in range(1, path_length):
+            if piece.board.has_piece((piece.position[0] + row_unit * i,
+                piece.position[1] + col_unit * i)):
+                return True
+        return False
+    return True
+   
+def piece_is_blocked_diagonal(piece, position):
+    """
+    Returns True if the diagonal path of piece to position is blocked.
+    It does not check for whether there is a piece at the final destination
+    since a move may be a valid attack. In addition, if position is not a
+    diagonal movement of the initial, then True is returned since the piece
+    is "blocked"
+    >>> board = Board(empty=True)
+    >>> queen = Queen("white")
+    >>> board.add_piece(queen, locate("d1"))
+    >>> board.add_piece(Pawn("black"), locate("h5"))
+    >>> board.add_piece(Pawn("white"), locate("c2")) # Set up board
+    >>> piece_is_blocked_diagonal(queen, locate("d1")) # Not valid move
+    True
+    >>> piece_is_blocked_diagonal(queen, locate("e2")) # Valid move
+    False
+    >>> piece_is_blocked_diagonal(queen, locate("f3")) # Valid move
+    False
+    >>> piece_is_blocked_diagonal(queen, locate("h5")) # Valid (see above)
+    False
+    >>> piece_is_blocked_diagonal(queen, locate("c2")) # Valid (see above)
+    False
+    >>> piece_is_blocked_diagonal(queen, locate("a4")) # Not valid move
+    True
+    >>> piece_is_blocked_diagonal(queen, locate("h1")) # Wrong move
+    True
+    >>> piece_is_blocked_diagonal(queen, locate("a2")) # Wrong move
+    True
+    """
+    row_change = position[0] - piece.position[0]
+    col_change = position[1] - piece.position[1]
+
+    n = abs(row_change)
+    m = abs(col_change)
+
+    if n == m and n != 0:
+        row_unit = row_change // n
+        col_unit = col_change // m
+
+        for i in range(1, n):
+            if piece.board.has_piece((piece.position[0] + row_unit * i,
+                piece.position[1] + col_unit * i)):
+                return True
+        return False
+    return True
+
 # Board class
 class Board:
     def __init__(self, empty=False):
-        """ Constructs a board with pieces in initial position.
+        """ 
+        Constructs a board with pieces in initial position.
         If empty is True, then board will not have any pieces.
         >>> board = Board()
         >>> print(board.board[0][0].name)
@@ -154,7 +261,8 @@ class Board:
 
     def move_piece(self, initial, final):
         """
-        Moves piece from initial to final position.
+        Moves piece from initial to final position. Naturally,
+        if there is no piece on initial, nothing happens.
         >>> board = Board()
         >>> bishop = board.get_piece((0, 2))
         >>> bishop.position
@@ -166,10 +274,12 @@ class Board:
         (5, 5)
         >>> board.get_piece((5, 5)) is bishop
         True
+        >>> board.get_piece((0, 2)) is None
+        True
         """
         piece = self.get_piece(initial)
         self.board[final[0]][final[1]] = piece
-        self.board[initial[0]][initial[1]]
+        self.board[initial[0]][initial[1]] = None
         piece.position = final
         
     def remove_piece(self, position):
@@ -178,62 +288,15 @@ class Board:
         and returns a pointer to it.
         >>> board = Board()
         """
-
-    
-    def piece_is_blocked_straight(self, piece, position):
-        """
-        Checks that there is no piece blocking 
-        the path to the given position. If 
-        path is not straight raise an exception.
-        The ends are checked in a different method.
-        >>> board = Board()
-        >>> pawn1 = board.get_piece((1, 0))
-        >>> board.piece_is_blocked_straight(pawn1, (3, 0))
-        False
-        >>> board.piece_is_blocked_straight(pawn1, (1, 1))
-        False
-        >>> board.piece_is_blocked_straight(pawn1, (6, 0))
-        False
-        >>> board.piece_is_blocked_straight(pawn1, (7, 0))
-        True
-        >>> board.piece_is_blocked_straight(pawn1, (7, 7))
-        Traceback (most recent call last):
-        ...
-        ValueError: position is invalid
-        >>> board.piece_is_blocked_straight(pawn1, (1, 0))
-        Traceback (most recent call last):
-        ...
-        ValueError: position must differ from piece's
-        """
-
-        if piece.position == position:
-            raise ValueError("position must differ from piece's")
-
-        # Check forward/backward
-        elif piece.position[0] == position[0]:
-            if piece.position[1] < position[1]:
-                ran = range(piece.position[1] + 1, position[1])
-            elif piece.position[1] > position[1]:
-                ran = range(position[1] + 1, piece.position[1])
-            for i in ran:
-                if self.has_piece((position[0], i)):
-                    return True
-            return False
-
-        # Check left/right
-        elif piece.position[1] == position[1]:
-            if piece.position[0] < position[0]:
-                ran = range(piece.position[0] + 1, position[0])
-            elif piece.position[0] > position[0]:
-                ran = range(position[0] + 1, piece.position[0])
-            for i in ran:
-                if self.has_piece((i, position[1])):
-                    return True
-            return False
-
-        raise ValueError("position is invalid")
             
     def make_move(self, move):
+        """
+        TODO: Figure out details.
+        Makes a move. Algorithm involved is most likely
+        1) Check if checkmate?
+        2) Check if move solves situation
+        3) If not, then calls piece.is_valid(move.position)
+        """
         try:
             if move.piece.is_valid(move.position):
                 self.move_piece(move.piece.position, move.position)
@@ -256,6 +319,7 @@ class Piece:
         self.position = position
         self.board = board
 
+# TODO figure out en passant
 class Pawn(Piece):
     name = "pawn"
     char = "P"
@@ -358,9 +422,26 @@ class Bishop(Piece):
         """
         Returns True if move to position is valid
         >>> board = Board()
-
+        >>> board.move_piece(locate("e2"), locate("e4")) # Move ally pawn up
+        >>> bishop = board.get_piece(locate("f1"))
+        >>> bishop.is_valid(locate("b5")) # Valid move
+        True
+        >>> board.move_piece(locate("b7"), locate("b5")) # Move enemy pawn up
+        >>> bishop.is_valid(locate("b5")) # Not correct
+        True
+        >>> bishop.is_valid(locate("g2")) # Blocked
+        False
+        >>> bishop.is_valid(locate("h3")) # Blocked again
+        False
+        >>> bishop.is_valid(locate("h4")) # Not a diagonal
+        False
         """
-        
+        if piece_is_blocked_diagonal(self, position):
+            return False
+        if self.board.has_piece(position) and\
+                self.board.get_piece(position).color == self.color:
+            return False
+        return True
 
 class Knight(Piece): 
     name = "knight"
