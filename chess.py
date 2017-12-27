@@ -1,7 +1,7 @@
 # Chess Board and Pieces
 
 # Import
-
+from copy import deepcopy
 
 # Functions
 def locate(pos_str):
@@ -134,6 +134,8 @@ class Board:
 
         self.board = []
         self.pieces = []
+        self.kings = {}
+        self.turn = "white"
         
         for _ in range(8):
             self.board.append([None] * 8)
@@ -243,7 +245,12 @@ class Board:
         self.board[position[0]][position[1]] = piece
         piece.position = position
         piece.board = self
-        self.pieces.append(piece)       
+        self.pieces.append(piece)
+
+        # Record King
+        # TODO should i raise an error when there are multiple kings?
+        if piece.name == "king":
+            self.kings[piece.color] = piece
 
     def has_piece(self, position):
         """
@@ -281,30 +288,55 @@ class Board:
         self.board[final[0]][final[1]] = piece
         self.board[initial[0]][initial[1]] = None
         piece.position = final
-        
+    
     def remove_piece(self, position):
         """
         Removes piece from position
         and returns a pointer to it.
         >>> board = Board()
+        >>> piece = board.remove_piece(locate("e2"))
+        >>> board.has_piece(locate("e2"))
+        False
+        >>> piece in board.pieces
+        False
         """
-            
+        piece = self.get_piece(position)
+        self.board[position[0]][position[1]] = None
+        piece.position = None
+        piece.board = None
+        self.pieces.remove(piece)
+
+    # TODO: Figure out details.
+    # TODO: Check for checkmate (note the 'mate')
+    # TODO: I feel like this could be better
     def make_move(self, move):
         """
-        TODO: Figure out details.
         Makes a move. Algorithm involved is most likely
-        1) Check if checkmate?
-        2) Check if move solves situation
-        3) If not, then calls piece.is_valid(move.position)
+        2) Check if move is valid
+        3) Check if move leads to check (i.e
         """
-        try:
-            if move.piece.is_valid(move.position):
-                self.move_piece(move.piece.position, move.position)
-                print(self)
-        except ValueError:
-            print("Invalid move. Try again")
+        # Validate the turn
+        if self.turn != move.piece.color:
+            raise ValueError("Wrong piece was selected")
+        # Check if move is valid
+        if not move.piece.is_valid(move.position):
+            raise ValueError("Move is invalid")
+        # Does check occur?
+        new_board = deepcopy(self)
+        if new_board.has_piece(move.position):
+            self.remove_piece(move.position)
+        new_board.move_piece(move.piece.position, move.position)
+        for piece in new_board.pieces:
+            if piece.color != self.turn and\
+                    piece.is_valid(self.kings[self.turn].position):
+                raise ValueError("You are in check by {0}".format(piece.name))
+            
+        # Otherwise valid
+        if self.has_piece(move.position):
+            self.remove_piece(move.position)
+        self.move_piece(move.piece.position, move.position)
+        self.turn = "white" if self.turn == "black" else "black"
 
-   
 # Move class
 class Move:
     def __init__(self, piece, position):
@@ -318,6 +350,13 @@ class Piece:
         self.color = color
         self.position = position
         self.board = board
+
+    def __str__(self):
+        return "{0}({1}, {2})".format(self.__class__.__name__, 
+                self.color.__repr__(), self.position.__repr__())
+
+    def __repr__(self):
+        return Piece.__str__(self)
 
 # TODO figure out en passant
 class Pawn(Piece):
@@ -335,7 +374,8 @@ class Pawn(Piece):
         (1, 0)
         """
         Piece.__init__(*args) 
-
+    
+    # TODO: Fix bad code
     def is_valid(self, position):
         """
         Given a position to move to, validates the move based on board.
@@ -420,7 +460,7 @@ class Bishop(Piece):
 
     def is_valid(self, position):
         """
-        Returns True if move to position is valid
+        Returns True if move to position is valid.
         >>> board = Board()
         >>> board.move_piece(locate("e2"), locate("e4")) # Move ally pawn up
         >>> bishop = board.get_piece(locate("f1"))
@@ -449,20 +489,105 @@ class Knight(Piece):
     def __init__(*args):
         Piece.__init__(*args)
 
+    def is_valid(self, position):
+        """
+        Returns True if move to position is valid.
+        >>> board = Board()
+        >>> knight = board.get_piece(locate("b1"))
+        >>> knight.is_valid(locate("b1"))
+        False
+        >>> knight.is_valid(locate("c3"))
+        True
+        >>> knight.is_valid(locate("d2"))
+        False
+        >>> knight.is_valid(locate("d4"))
+        False
+        >>> knight.is_valid(locate("a3"))
+        True
+        """
+        row_change = abs(self.position[0] - position[0])
+        col_change = abs(self.position[1] - position[1])
+        if not (row_change == 2 and col_change == 1 or\
+                row_change == 1 and col_change == 2):
+            return False
+        if self.board.has_piece(position) and\
+                self.board.get_piece(position).color == self.color:
+            return False
+        return True
+
 class Rook(Piece):
     name = "rook"
     char = "R"
     def __init__(*args):
         Piece.__init__(*args)
 
+    def is_valid(self, position):
+        """Returns True if move to position is valid
+        >>> board = Board(empty=True)
+        >>> rook = Rook("black")
+        >>> board.add_piece(rook, locate("d4"))
+        >>> board.add_piece(Pawn("white"), locate("d2"))
+        >>> board.add_piece(Pawn("white"), locate("b4"))
+        >>> rook.is_valid(locate("d2"))
+        True
+        >>> rook.is_valid(locate("d1"))
+        False
+        >>> rook.is_valid(locate("d3"))
+        True
+        >>> rook.is_valid(locate("d4"))
+        False
+        >>> rook.is_valid(locate("a4"))
+        False
+        >>> rook.is_valid(locate("b4"))
+        True
+        >>> rook.is_valid(locate("b3"))
+        False
+        """
+        if piece_is_blocked_straight(self, position):
+            return False
+        if self.board.has_piece(position) and\
+                self.board.get_piece(position).color == self.color:
+            return False
+        return True
+
 class Queen(Piece):
     name = "queen"
     char = "Q"
     def __init__(*args):
         Piece.__init__(*args)
+    
+    # TODO: Finish doctests
+    def is_valid(self, position):
+        """
+        Returns True if move to position is valid.
+        """
+        if piece_is_blocked_straight(self,position) and\
+                piece_is_blocked_diagonal(self, position):
+            return False
+        if self.board.has_piece(position) and\
+                self.board.get_piece(position).color == self.color:
+            return False
+        return True
 
 class King(Piece):
     name = "king"
     char = "K"
     def __init__(*args):
         Piece.__init__(*args)
+    
+    # TODO: Finish doctests
+    def is_valid(self,position):
+        """
+        Returns True if move to position is valid.
+        """
+        row_change = abs(position[0] - self.position[0])
+        col_change = abs(position[1] - self.position[1])
+
+        if row_change == 0 and col_change == 0:
+            return False
+        if row_change > 1 or col_change > 1:
+            return False
+        if self.board.has_piece(position) and\
+                self.board.get_piece(position).color == self.color:
+            return False
+        return True
