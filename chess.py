@@ -6,30 +6,25 @@ from copy import deepcopy
 # Functions
 def locate(pos_str):
     """
-    Gives the position based on the string. In this program, all positions
-    are represented as tuples in the form (ROW, COLUMN) of the array. 
+    Gives the position object based on the string. In this program, all 
+    positions are represented by an instance of the Position class.
     This function aims to ease the use of positions within this program.
     >>> locate("a1")
-    (0, 0)
+    a1
     >>> locate("a2")
-    (1, 0)
+    a2
     >>> locate("a3")
-    (2, 0)
+    a3
     >>> locate("e4")
-    (3, 4)
+    e4
     >>> locate("f8")
-    (7, 5)
+    f8
     >>> locate("g8")
-    (7, 6)
+    g8
     >>> locate("h8")
-    (7, 7)
+    h8
     """
-    return ("12345678".index(pos_str[1]), "abcdefgh".index(pos_str[0]))
-
-# TODO: Add doctests
-def is_in_range(position):
-    return 0 <= position[0] and position[0] < 8\
-            and 0 <= position[1] and position[1] < 8
+    return Position("12345678".index(pos_str[1]), "abcdefgh".index(pos_str[0]))
 
 def piece_is_blocked_straight(piece, position):
     """
@@ -49,8 +44,8 @@ def piece_is_blocked_straight(piece, position):
     >>> piece_is_blocked_straight(pawn1, locate("a8"))
     True
     """
-    row_change = position[0] - piece.position[0]
-    col_change = position[1] - piece.position[1]
+    row_change = position.row - piece.position.row
+    col_change = position.col - piece.position.col
 
     n = abs(row_change)
     m = abs(col_change)
@@ -61,8 +56,8 @@ def piece_is_blocked_straight(piece, position):
         path_length = max(n, m)
 
         for i in range(1, path_length):
-            if piece.board.has_piece((piece.position[0] + row_unit * i,
-                piece.position[1] + col_unit * i)):
+            if piece.board.get_piece(piece.position + (row_unit * i, 
+                col_unit * i)):
                 return True
         return False
     return True
@@ -96,8 +91,8 @@ def piece_is_blocked_diagonal(piece, position):
     >>> piece_is_blocked_diagonal(queen, locate("a2")) # Wrong move
     True
     """
-    row_change = position[0] - piece.position[0]
-    col_change = position[1] - piece.position[1]
+    row_change = position.row - piece.position.row
+    col_change = position.col - piece.position.col
 
     n = abs(row_change)
     m = abs(col_change)
@@ -107,8 +102,8 @@ def piece_is_blocked_diagonal(piece, position):
         col_unit = col_change // m
 
         for i in range(1, n):
-            if piece.board.has_piece((piece.position[0] + row_unit * i,
-                piece.position[1] + col_unit * i)):
+            if piece.board.get_piece(piece.position + (row_unit * i, 
+                col_unit * i)):
                 return True
         return False
     return True
@@ -148,12 +143,36 @@ class Position:
         return str(self)
 
     def __add__(self, pair):
+        """
+        Returns the position translated by a pair indicating the
+        change in row and change in column.
+        >>> locate("a1") + (1, 1)
+        b2
+        >>> locate("c4") + (1, -1)
+        b5
+        """
         return Position(self.row + pair[0], self.col + pair[1])
 
+    def __eq__(self, other):
+        """
+        Returns true if two position objects are equal.
+        >>> locate("a1") == locate("a1")
+        True
+        >>> locate("c3") == locate("d5")
+        False
+        """
+        return self.row == other.row and self.col == other.col
+
     def in_range(self):
+        """
+        Returns true if row and col are in range.
+        >>> Position(1, 3).in_range()
+        True
+        >>> Position(8, 8).in_range()
+        False
+        """
         return 0 <= self.row and self.row < 8\
                 and 0 <= self.col and self.col < 8
-
 
 # Board class
 class Board:
@@ -182,8 +201,8 @@ class Board:
         self.pieces = []
         self.kings = {}
         self.en_passant = None
-        self.black_castle = True
-        self.white_castle = True
+        self.queen_side_castle = {"white": True, "black": True}
+        self.king_side_castle = {"white": True, "black": True}
         self.turn = "white"
         
         for _ in range(8):
@@ -191,27 +210,27 @@ class Board:
 
         if not empty:
             # Populate board
-            self.add_piece(Rook("white"), (0, 0))
-            self.add_piece(Knight("white"), (0, 1))
-            self.add_piece(Bishop("white"), (0, 2))
-            self.add_piece(Queen("white"), (0, 3))
-            self.add_piece(King("white"), (0, 4))
-            self.add_piece(Bishop("white"), (0, 5))
-            self.add_piece(Knight("white"), (0, 6))
-            self.add_piece(Rook("white"), (0, 7))
+            self.add_piece(Rook("white"), Position(0, 0))
+            self.add_piece(Knight("white"), Position(0, 1))
+            self.add_piece(Bishop("white"), Position(0, 2))
+            self.add_piece(Queen("white"), Position(0, 3))
+            self.add_piece(King("white"), Position(0, 4))
+            self.add_piece(Bishop("white"), Position(0, 5))
+            self.add_piece(Knight("white"), Position(0, 6))
+            self.add_piece(Rook("white"), Position(0, 7))
 
-            self.add_piece(Rook("black"), (7, 0))
-            self.add_piece(Knight("black"), (7, 1))
-            self.add_piece(Bishop("black"), (7, 2))
-            self.add_piece(Queen("black"), (7, 3))
-            self.add_piece(King("black"), (7, 4))
-            self.add_piece(Bishop("black"), (7, 5))
-            self.add_piece(Knight("black"), (7, 6))
-            self.add_piece(Rook("black"), (7, 7))
+            self.add_piece(Rook("black"), Position(7, 0))
+            self.add_piece(Knight("black"), Position(7, 1))
+            self.add_piece(Bishop("black"), Position(7, 2))
+            self.add_piece(Queen("black"), Position(7, 3))
+            self.add_piece(King("black"), Position(7, 4))
+            self.add_piece(Bishop("black"), Position(7, 5))
+            self.add_piece(Knight("black"), Position(7, 6))
+            self.add_piece(Rook("black"), Position(7, 7))
         
             for i in range(8):
-                self.add_piece(Pawn("white"), (1, i))
-                self.add_piece(Pawn("black"), (6, i))
+                self.add_piece(Pawn("white"), Position(1, i))
+                self.add_piece(Pawn("black"), Position(6, i))
 
     def __str__(self):
         """
@@ -263,92 +282,84 @@ class Board:
         """
         Gets piece on board at given position.
         >>> board = Board()
-        >>> board.get_piece((1, 0)).name
+        >>> board.get_piece(locate("a2")).name
         'pawn'
-        >>> board.get_piece((0, 0)).name
+        >>> board.get_piece(locate("a1")).name
         'rook'
-        >>> board.get_piece((0, 1)).name
+        >>> board.get_piece(locate("b1")).name
         'knight'
-        >>> board.get_piece((0, 1)).board is board
+        >>> board.get_piece(locate("b1")).board is board
         True
-        >>> board.get_piece((0, 1)).position == (0, 1)
+        >>> board.get_piece(locate("b1")).position == locate("b1")
         True
         """
-        return self.board[position[0]][position[1]]
+        return self.board[position.row][position.col]
 
     def add_piece(self, piece, position):
         """
         Adds piece on board at given position.
         >>> board = Board(empty=True)
-        >>> board.add_piece(Pawn("white"), (3, 3))
-        >>> pawn = board.get_piece((3, 3))
+        >>> board.add_piece(Pawn("white"), locate("d4"))
+        >>> pawn = board.get_piece(locate("d4"))
         >>> pawn.name
         'pawn'
         >>> pawn.position
-        (3, 3)
+        d4
         >>> pawn.board is board
         True
         >>> pawn in board.pieces
         True
         """
-        self.board[position[0]][position[1]] = piece
+        self.board[position.row][position.col] = piece
         piece.position = position
         piece.board = self
         self.pieces.append(piece)
 
         # Record King
-        # TODO should i raise an error when there are multiple kings?
         if piece.name == "king":
             self.kings[piece.color] = piece
 
-    def has_piece(self, position):
-        """
-        Returns whether board has some piece at position.
-        >>> board = Board(empty=True)
-        >>> board.has_piece((4, 4))
-        False
-        >>> board.add_piece(Pawn("white"), (4, 4))
-        >>> board.has_piece((4, 4))
-        True
-        >>> board.has_piece((4, 5))
-        False
-        """
-        return self.get_piece(position) is not None
-
-    # TODO: Add doctests for en passant and castling
     def move_piece(self, initial, final):
         """
         Moves piece from initial to final position.
         >>> board = Board()
-        >>> bishop = board.get_piece((0, 2))
+        >>> bishop = board.get_piece(locate("c1"))
         >>> bishop.position
-        (0, 2)
+        c1
         >>> bishop.name
         'bishop'
-        >>> board.move_piece((0, 2), (5, 5))
+        >>> board.move_piece(locate("c1"), locate("f6"))
         >>> bishop.position
-        (5, 5)
-        >>> board.get_piece((5, 5)) is bishop
+        f6
+        >>> board.get_piece(locate("f6")) is bishop
         True
-        >>> board.get_piece((0, 2)) is None
+        >>> board.get_piece(locate("c1")) is None
         True
         """
         piece = self.get_piece(initial)
-        self.board[final[0]][final[1]] = piece
-        self.board[initial[0]][initial[1]] = None
+        self.board[final.row][final.col] = piece
+        self.board[initial.row][initial.col] = None
         piece.position = final
         
         # En passant
         if piece.name == "pawn":
             unit = 1 if piece.color == "white" else -1
             start = 1 if piece.color == "white" else 6
-            if initial[0] == start and final[0] == start + 2 * unit:
+            if initial.row == start and final.row == start + 2 * unit:
                 self.en_passant = piece
         else:
             self.en_passant = None
 
         # Castling
+        if piece.name == "king":
+            queen_side_castle[piece.color] = False
+            king_side_castle[piece.color] = False
 
+        if piece.name == "rook" and piece.position.row == 0:
+            queen_side_castle[piece.color] = False
+
+        if piece.name == "rook" and piece.position.row == 7:
+            king_side_castle[piece.color] = False
 
     def remove_piece(self, position):
         """
@@ -356,13 +367,13 @@ class Board:
         and returns a pointer to it.
         >>> board = Board()
         >>> piece = board.remove_piece(locate("e2"))
-        >>> board.has_piece(locate("e2"))
-        False
+        >>> board.get_piece(locate("e2")) is None
+        True
         >>> piece in board.pieces
         False
         """
         piece = self.get_piece(position)
-        self.board[position[0]][position[1]] = None
+        self.board[position.row][position.col] = None
         piece.position = None
         piece.board = None
         self.pieces.remove(piece)
@@ -428,13 +439,13 @@ class Pawn(Piece):
 
     def __init__(*args):
         """ Constructs a pawn.
-        >>> pawn = Pawn("black", (1, 0))
+        >>> pawn = Pawn("black", locate("a2"))
         >>> pawn.name
         'pawn'
         >>> pawn.color
         'black'
         >>> pawn.position
-        (1, 0)
+        a2
         """
         Piece.__init__(*args)
     
@@ -473,64 +484,66 @@ class Pawn(Piece):
         """
         unit = 1 if self.color == "white" else -1
         start = 1 if self.color == "white" else 6
+        target = self.board.get_piece(position)
         # Move one unit
-        if position[0] == self.position[0] + unit\
-                and position[1] == self.position[1]\
-                and not self.board.has_piece(position):
+        if position == self.position + (unit, 0) and not target:
             return True
         # Move two units
-        if position[0] == start + 2 * unit\
-                and self.position[0] == start\
-                and position[1] == self.position[1]\
-                and not self.board.has_piece((start + unit, position[1]))\
-                and not self.board.has_piece(position):
+        if position == self.position + (2 * unit, 0)\
+                and self.position.row == start\
+                and not self.board.get_piece(self.position + (unit , 0))\
+                and not target:
             return True
         # But most importantly, he attac
-        if position[0] == self.position[0] + unit\
-                and abs(position[1] - self.position[1]) == 1:
-            if self.board.has_piece(position)\
-                    and self.board.get_piece(position).color != self.color:
+        if position == self.position + (unit, 1)\
+                or position == self.position + (unit, -1):
+            if target and target.color != self.color:
                 return True
-            mod_pos = (position[0] - unit, position[1])
-            if self.board.has_piece(mod_pos)\
+            mod_pos = position + (-unit, 0)
+            if self.board.get_piece(mod_pos)\
                     and self.board.get_piece(mod_pos).color != self.color\
                     and self.board.get_piece(mod_pos) == self.board.en_passant:
                 return True
         return False
     
-    # TODO: Finish doctests
     def valid_pos(self):
         """
         Outputs a list of valid positions to move to.
         >>> board = Board()
         >>> pawn1 = board.get_piece(locate("e2"))
-        >>> pawn2 = board.get_piece(locate("d6"))
-        >>> (2, 4) in pawn1.valid_pos()
-        True
-        >>> (3, 4) in pawn1.valid_pos()
-        True
+        >>> pawn2 = board.get_piece(locate("d7"))
+        >>> pawn1.valid_pos()
+        [e3, e4]
+        >>> pawn2.valid_pos()
+        [d6, d5]
+        >>> board.move_piece(locate("e2"), locate("e4"))
+        >>> board.move_piece(locate("d7"), locate("d5"))
+        >>> pawn1.valid_pos()
+        [e5, d5]
+        >>> pawn2.valid_pos()
+        [d4, e4]
         """
         valid_pos = []
         unit = 1 if self.color == "white" else -1
         start = 1 if self.color == "white" else 6
-        forward_one = (self.position[0] + unit, self.position[1])
-        forward_two = (self.position[0] + 2 * unit, self.position[1])
+        forward_one = self.position + (unit, 0)
+        forward_two = self.position + (2 * unit, 0)
         
         # Move forward
-        if not self.board.has_piece(forward_one):
+        if not self.board.get_piece(forward_one):
             valid_pos.append(forward_one)
-            if self.position[0] == start and not self.board.has_piece(forward_two):
+            if self.position.row == start\
+                    and not self.board.get_piece(forward_two):
                 valid_pos.append(forward_two)
         
         # Attack
-        attack_pos = [(self.position[0] + unit, self.position[1] - 1),
-                (self.position[0] + unit, self.position[1] + 1)]
+        attack_pos = [self.position + (unit, -1), self.position + (unit, 1)]
         for p in attack_pos:
-            ep = (p[0] - unit, p[1])
-            if self.board.has_piece(p)\
+            ep = p + (-unit, 0)
+            if self.board.get_piece(p)\
                     and self.board.get_piece(p).color != self.color:
                 valid_pos.append(p)
-            elif self.board.has_piece(ep)\
+            elif self.board.get_piece(ep)\
                     and self.board.get_piece(ep) is self.board.en_passant:
                 valid_pos.append(p)
 
@@ -563,12 +576,11 @@ class Bishop(Piece):
         """
         if piece_is_blocked_diagonal(self, position):
             return False
-        if self.board.has_piece(position) and\
-                self.board.get_piece(position).color == self.color:
+        target = self.board.get_piece(position)
+        if target and target.color == self.color:
             return False
         return True
 
-    # TODO: Add doctests
     def valid_pos(self):
         """
         Returns the possible position for self (bishop) to move.
@@ -576,16 +588,19 @@ class Bishop(Piece):
         >>> bishop = board.get_piece(locate("f1"))
         >>> bishop.valid_pos()
         []
-        >>> board.move_piece(locate("e2"), locate("e4"))
+        >>> board.move_piece(locate("e2"), locate("e3"))
         >>> bishop.valid_pos()
-        [(1, 4), (2, 3), (3, 2), (4, 1), (5, 0)]
+        [e2, d3, c4, b5, a6]
+        >>> board.move_piece(locate("f1"), locate("d3"))
+        >>> bishop.valid_pos()
+        [e4, f5, g6, h7, c4, b5, a6, e2, f1]
         """
         valid_pos = []
         for unit in [(1, 1), (1, -1), (-1, 1), (-1, -1)]:
             cur = self.position
             while True:
-                cur = (cur[0] + unit[0], cur[1] + unit[1])
-                if not is_in_range(cur):
+                cur = cur + unit
+                if not cur.in_range():
                     break
                 piece = self.board.get_piece(cur)
                 if piece:
@@ -618,27 +633,36 @@ class Knight(Piece):
         >>> knight.is_valid(locate("a3"))
         True
         """
-        row_change = abs(self.position[0] - position[0])
-        col_change = abs(self.position[1] - position[1])
+        row_change = abs(self.position.row - position.row)
+        col_change = abs(self.position.col - position.col)
         if not (row_change == 2 and col_change == 1 or\
                 row_change == 1 and col_change == 2):
             return False
-        if self.board.has_piece(position) and\
-                self.board.get_piece(position).color == self.color:
+        target = self.board.get_piece(position)
+        if target and target.color == self.color:
             return False
         return True
 
-    # TODO: doctests
     def valid_pos(self):
         """
         Returns a list of valid positions for self (knight) to move to.
+        >>> board = Board()
+        >>> knight = board.get_piece(locate("b1"))
+        >>> knight.valid_pos()
+        [c3, a3]
+        >>> board.move_piece(locate("b1"), locate("c3"))
+        >>> knight.valid_pos()
+        [e4, d5, b5, a4, b1]
+        >>> board.move_piece(locate("c3"), locate("b5"))
+        >>> knight.valid_pos()
+        [d6, c7, d4, a7, c3, a3]
         """
         valid_pos = []
 
         for unit in [(1, 2), (2, 1), (-1, 2), (2, -1),
                 (1, -2), (-2, 1), (-1, -2), (-2, -1)]:
-            cur = (self.position[0] + unit[0], self.position[1] + unit[1])
-            if not is_in_range(cur):
+            cur = self.position + unit
+            if not cur.in_range():
                 continue
             piece = self.board.get_piece(cur)
             if piece and piece.color == self.color:
@@ -677,19 +701,32 @@ class Rook(Piece):
         """
         if piece_is_blocked_straight(self, position):
             return False
-        if self.board.has_piece(position) and\
-                self.board.get_piece(position).color == self.color:
+        target = self.board.get_piece(position)
+        if target and target.color == self.color:
             return False
         return True
     
-    # TODO: Doctests
     def valid_pos(self):
+        """
+        Returns the valid moves for rook.
+        >>> board = Board()
+        >>> board.remove_piece(locate("a2"))
+        >>> rook = board.get_piece(locate("a1"))
+        >>> rook.valid_pos()
+        [a2, a3, a4, a5, a6, a7]
+        >>> board.move_piece(locate("a1"), locate("a4"))
+        >>> rook.valid_pos()
+        [a5, a6, a7, b4, c4, d4, e4, f4, g4, h4, a3, a2, a1]
+        >>> board.move_piece(locate("a4"), locate("d4"))
+        >>> rook.valid_pos()
+        [d5, d6, d7, e4, f4, g4, h4, d3, c4, b4, a4]
+        """
         valid_pos = []
         for unit in [(1, 0), (0, 1), (-1, 0), (0, -1)]:
             cur = self.position
             while True:
-                cur = (cur[0] + unit[0], cur[1] + unit[1])
-                if not is_in_range(cur):
+                cur = cur + unit
+                if not cur.in_range():
                     break
                 piece = self.board.get_piece(cur)
                 if piece:
@@ -715,7 +752,7 @@ class Queen(Piece):
         if piece_is_blocked_straight(self,position) and\
                 piece_is_blocked_diagonal(self, position):
             return False
-        if self.board.has_piece(position) and\
+        if self.board.get_piece(position) and\
                 self.board.get_piece(position).color == self.color:
             return False
         return True
@@ -726,7 +763,7 @@ class Queen(Piece):
                 (1, 1), (1, -1), (-1, 1), (-1, -1)]:
             cur = self.position
             while True:
-                cur = (cur[0] + unit[0], cur[1] + unit[1])
+                cur = cur + unit
                 if not is_in_range(cur):
                     break
                 piece = self.board.get_piece(cur)
@@ -758,7 +795,7 @@ class King(Piece):
             return False
         if row_change > 1 or col_change > 1:
             return False
-        if self.board.has_piece(position) and\
+        if self.board.get_piece(position) and\
                 self.board.get_piece(position).color == self.color:
             return False
         return True
@@ -767,10 +804,24 @@ class King(Piece):
     # TODO: Implement castling
     # TODO: Finish
     def valid_pos(self):
+        """
+        Returns the valid positions for the king.
+        >>> board = Board(empty=True)
+        >>> board.add_piece(Rook("white"), locate("a1"))
+        >>> board.add_piece(Rook("white"), locate("h1"))
+        >>> board.add_piece(King("white"), locate("e1"))
+        >>> board.add_piece(Rook("black"), locate("a8"))
+        >>> king = board.kings["white"]
+        >>> king.valid_pos()
+
+        """
+        valid_pos = []
         for unit in [(1, 0), (1, 1), (0, 1), (-1, 1),
                 (-1, 0), (-1, -1), (0, -1), (1, -1)]:
-            cur = (self.position[0] + unit[0], self.position[1] + unit[1])
-            if not is_int_range(cur):
-                continue
-            
+            cur = self.position + unit
+            target = self.board.get_piece(cur)
+            if cur.in_range() and (not target or target.color != self.color):
+                valid_pos.append(cur)
 
+
+        return valid_pos
