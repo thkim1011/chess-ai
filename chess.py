@@ -174,12 +174,43 @@ class Position:
         return 0 <= self.row and self.row < 8\
                 and 0 <= self.col and self.col < 8
 
+# Move class
+class Move:
+    def __init__(self, piece, position, kill=None, ep=False, castle=False):
+        self.piece = piece
+        self.position = position
+        self.kill = kill
+
 # Board class
 class Board:
     def __init__(self, empty=False):
         """ 
         Constructs a board with pieces in initial position.
         If empty is True, then board will not have any pieces.
+
+        There are some instance variables that are of importance.
+
+        self.board is a two dimensional array that stores each of the pieces
+        in their respective locations.
+
+        self.pieces is a dictionary consisting of two keys "white" and "black"
+        and the respective array of pieces that are within these categories.
+
+        self.history is an array of the moves that have occurred so far. Any move
+        is recorded by a call to the move_piece method. It is used by the
+        undo_move method.
+
+        self.en_passant points to the pawn that has moved two steps up and
+        thus is "en passant"-able. That is, a pawn in the correct conditions
+        may be able to take the pawn. 
+
+        self.queen_side_castle is a dictionary consisting of two keys "white"
+        and "black" which tells whether the respective king may castle through
+        the queen's side.
+
+        self.king_side_castle is a dictionary consisting of two keys "white"
+        and "black" which tells whether the respective king may castle through
+        his side.
         >>> board = Board()
         >>> print(board.board[0][0].name)
         rook
@@ -198,12 +229,12 @@ class Board:
         """
 
         self.board = []
-        self.pieces = []
+        self.pieces = {"white": [], "black": []}
         self.kings = {}
+        self.history = []
         self.en_passant = None
         self.queen_side_castle = {"white": True, "black": True}
         self.king_side_castle = {"white": True, "black": True}
-        self.turn = "white"
         
         for _ in range(8):
             self.board.append([None] * 8)
@@ -307,28 +338,46 @@ class Board:
         d4
         >>> pawn.board is board
         True
-        >>> pawn in board.pieces
+        >>> pawn in board.pieces["white"]
         True
         """
         self.board[position.row][position.col] = piece
         piece.position = position
         piece.board = self
-        self.pieces.append(piece)
+        self.pieces[piece.color].append(piece)
 
         # Record King
         if piece.name == "king":
             self.kings[piece.color] = piece
-
-    def move_piece(self, initial, final):
+    
+    # TODO: Add more doctests and thoroughly describe what happens
+    # in the docs.
+    def move_piece(self, piece, position, ep=False, castle=False, promote=False):
         """
-        Moves piece from initial to final position.
+        Moves piece from initial to final position. Returns any piece that was
+        killed by the move.
+
+        The goal of this method is so that when we call move_piece on piece
+        and position such that piece.is_valid(position) and not board.in_check()
+        then the resulting game should be completely valid. The condition 
+        that piece.is_valid is called separately relaxes some of the rules 
+        and allows for moving pieces in a free style.
+
+        The analogy could be made that move_piece is to a real player moving
+        chess pieces in an arbitrary fashion, while following the rules 
+        leads to a valid chess game.
+
+        In addition, board.in_check() should be called after the move is made
+        since the move must be made in order to check for a check.
+
+        Castling is an exception. When castling is specified, then 
         >>> board = Board()
         >>> bishop = board.get_piece(locate("c1"))
         >>> bishop.position
         c1
         >>> bishop.name
         'bishop'
-        >>> board.move_piece(locate("c1"), locate("f6"))
+        >>> board.move_piece(bishop, locate("f6"))
         >>> bishop.position
         f6
         >>> board.get_piece(locate("f6")) is bishop
@@ -336,102 +385,156 @@ class Board:
         >>> board.get_piece(locate("c1")) is None
         True
         """
-        piece = self.get_piece(initial)
-        self.board[final.row][final.col] = piece
-        self.board[initial.row][initial.col] = None
-        piece.position = final
-        
         # En passant
         if piece.name == "pawn":
             unit = 1 if piece.color == "white" else -1
             start = 1 if piece.color == "white" else 6
-            if initial.row == start and final.row == start + 2 * unit:
+            if piece.position.row == start and position.row == start + 2 * unit:
                 self.en_passant = piece
         else:
             self.en_passant = None
 
         # Castling
         if piece.name == "king":
-            queen_side_castle[piece.color] = False
-            king_side_castle[piece.color] = False
+            self.queen_side_castle[piece.color] = False
+            self.king_side_castle[piece.color] = False
 
         if piece.name == "rook" and piece.position.row == 0:
-            queen_side_castle[piece.color] = False
+            self.queen_side_castle[piece.color] = False
 
         if piece.name == "rook" and piece.position.row == 7:
-            king_side_castle[piece.color] = False
+            self.king_side_castle[piece.color] = False
+        
+        # En passant
+        if ep:
+            if not isinstance(piece, Pawn):
+                raise ValueError("only pawns may move en passant")
+            target = self.get_piece(position + (-1, 0))
+            if not target or target is not board.en_passant:
+                raise ValueError("move is not en passant")
+            target.remove_piece(target)
 
-    def remove_piece(self, position):
+        if castle:
+            if not isinstance(piece, King):
+                raise ValueError("only king may castle")
+            row = 0 if piece.color == "white" else 7;
+            if position.col == 3:
+                if not self.queen_side_castle[piece.color]:
+                    raise ValueError("cannot move since either rook or king\
+                            has previously moved")
+                if board.in_check(piece.color):
+                    raise ValueError("cannot castle out of check")
+                self.board[position.row][2] = piece
+                self.board[position.row][3] = None
+                if board.in_check(piece.color):
+                    raise ValueError("cannot castle through check")
+                self.board[position.row][
+
+                board.move_piece(position + (0, -1))
+                if board.in_check(
+
+
+
+
+            elif position.col == 7:
+            
+
+        # Move piece
+        target = self.get_piece(position)
+        if target:
+            self.remove_piece(target)
+        self.board[position.row][position.col] = piece
+        self.board[piece.position.row][piece.position.col] = None
+        piece.position = position
+
+        return target
+
+    def remove_piece(self, piece):
         """
-        Removes piece from position
-        and returns a pointer to it.
+        Removes piece from board and returns a pointer to the piece.
         >>> board = Board()
-        >>> piece = board.remove_piece(locate("e2"))
+        >>> piece = board.remove_piece(board.get_piece(locate("e2")))
         >>> board.get_piece(locate("e2")) is None
         True
-        >>> piece in board.pieces
+        >>> piece in board.pieces["white"]
         False
+
         """
-        piece = self.get_piece(position)
-        self.board[position.row][position.col] = None
+        self.board[piece.position.row][piece.position.col] = None
         piece.position = None
         piece.board = None
-        self.pieces.remove(piece)
+        self.pieces[piece.color].remove(piece)
+    
+    def undo_move(self):
 
-    # TODO: Figure out details.
-    # TODO: Check for checkmate (note the 'mate')
-    # TODO: I feel like this could be better
-    # TODO: Probably should move this to game logic
-"""
-    def make_move(self, move):
-        ""
-        makes a move. algorithm involved is most likely
-        2) check if move is valid
-        3) check if move leads to check (i.e
-        ""
-        # validate the turn
-        if self.turn != move.piece.color:
-            raise valueerror("wrong piece was selected")
-        # check if move is valid
-        if not move.piece.is_valid(move.position):
-            raise valueerror("move is invalid")
-        # does check occur?
-        new_board = deepcopy(self)
-        if new_board.has_piece(move.position):
-            self.remove_piece(move.position)
-        new_board.move_piece(move.piece.position, move.position)
-        for piece in new_board.pieces:
-            if piece.color != self.turn and\
-                    piece.is_valid(self.kings[self.turn].position):
-                raise valueerror("you are in check by {0}".format(piece.name))
-            
-        # otherwise valid
-        if self.has_piece(move.position):
-            self.remove_piece(move.position)
-        self.move_piece(move.piece.position, move.position)
-        self.turn = "white" if self.turn == "black" else "black"
 
-"""
-
+    def in_check(self, color):
+        """
+        Returns true if the given player (color) is currently in check.
+        >>> board = Board()
+        >>> board.in_check("white")
+        False
+        >>> board.in_check("black")
+        False
+        >>> queen = board.get_piece(locate("d8"))
+        >>> board.move_piece(queen, locate("e2"))
+        Pawn('white', None)
+        >>> board.in_check("white")
+        True
+        >>> board.in_check("black")
+        False
+        """
+        opp = "black" if color == "white" else "white"
+        for piece in self.pieces[opp]:
+            if piece.is_valid(self.kings[color].position):
+                return True
+        return False
+    
 # Pieces
 class Piece:
     def __init__(self, color, position=None, board=None):
+        """
+        Constructs a piece. A piece has several important instance variables.
+
+        self.color is the piece's color.
+
+        self.position is the piece's position, an instance of the Position class.
+
+        self.board is the board that the piece belongs to.
+        >>> piece = Piece("black", Position(0, 0), None)
+        >>> piece.color
+        'black'
+        >>> piece.position
+        a1
+        >>> piece.board
+        """
         assert color == "black" or color == "white"
         self.color = color
         self.position = position
         self.board = board
 
     def __str__(self):
+        """
+        Returns the string representation of Piece. It is given in
+        the form "Piece_Name(color, position)". For example, a Rook object
+        with color "black" and position a1 will be represented as
+        "Rook("black", a1)".
+        >>> print(Piece("black", Position(0, 0)))
+        Piece('black', a1)
+        >>> print(Piece("white", Position(7, 7)))
+        Piece('white', h8)
+        """
         return "{0}({1}, {2})".format(self.__class__.__name__, 
-                self.color.__repr__(), self.position.__repr__())
+                repr(self.color), repr(self.position))
 
     def __repr__(self):
+        """
+        Returns the representation of Piece. It is the same as
+        the __str__ method.
+        >>> Piece("black", Position(0, 0))
+        Piece('black', a1)
+        """
         return Piece.__str__(self)
-
-    def leads_to_check(self):
-        """
-        Returns whether a move of self to position leads to a check.
-        """
 
 class Pawn(Piece):
     name = "pawn"
@@ -455,13 +558,14 @@ class Pawn(Piece):
         >>> board = Board()
         >>> pawn1 = board.get_piece(locate("d2"))
         >>> pawn2 = board.get_piece(locate("e7"))
+        >>> pawn3 = board.get_piece(locate("c7"))
         >>> pawn1.is_valid(locate("d3")) # Advance white pawn
         True
         >>> pawn1.is_valid(locate("d4"))
         True
         >>> pawn1.is_valid(locate("d5"))
         False
-        >>> board.move_piece(locate("d2"), locate("d4"))
+        >>> board.move_piece(pawn1, locate("d4"))
         >>> pawn1.is_valid(locate("d5")) # Advance white pawn
         True
         >>> pawn1.is_valid(locate("d6"))
@@ -472,13 +576,13 @@ class Pawn(Piece):
         True
         >>> pawn2.is_valid(locate("e4"))
         False
-        >>> board.move_piece(locate("e7"), locate("e5"))
+        >>> board.move_piece(pawn2, locate("e5"))
         >>> pawn1.is_valid(locate("e5")) # Attack black pawn
         True
         >>> pawn2.is_valid(locate("d4")) # Attack white pawn
         True
-        >>> board.move_piece(locate("d4"), locate("d5"))
-        >>> board.move_piece(locate("c7"), locate("c5"))
+        >>> board.move_piece(pawn1, locate("d5"))
+        >>> board.move_piece(pawn3, locate("c5"))
         >>> pawn1.is_valid(locate("c6"))
         True
         """
@@ -516,8 +620,8 @@ class Pawn(Piece):
         [e3, e4]
         >>> pawn2.valid_pos()
         [d6, d5]
-        >>> board.move_piece(locate("e2"), locate("e4"))
-        >>> board.move_piece(locate("d7"), locate("d5"))
+        >>> board.move_piece(pawn1, locate("e4"))
+        >>> board.move_piece(pawn2, locate("d5"))
         >>> pawn1.valid_pos()
         [e5, d5]
         >>> pawn2.valid_pos()
@@ -560,11 +664,13 @@ class Bishop(Piece):
         """
         Returns True if move to position is valid.
         >>> board = Board()
-        >>> board.move_piece(locate("e2"), locate("e4")) # Move ally pawn up
+        >>> pawn1 = board.get_piece(locate("e2"))
+        >>> pawn2 = board.get_piece(locate("b7"))
         >>> bishop = board.get_piece(locate("f1"))
+        >>> board.move_piece(pawn1, locate("e4")) # Move ally pawn up
         >>> bishop.is_valid(locate("b5")) # Valid move
         True
-        >>> board.move_piece(locate("b7"), locate("b5")) # Move enemy pawn up
+        >>> board.move_piece(pawn2, locate("b5")) # Move enemy pawn up
         >>> bishop.is_valid(locate("b5")) # Not correct
         True
         >>> bishop.is_valid(locate("g2")) # Blocked
@@ -586,12 +692,13 @@ class Bishop(Piece):
         Returns the possible position for self (bishop) to move.
         >>> board = Board()
         >>> bishop = board.get_piece(locate("f1"))
+        >>> pawn = board.get_piece(locate("e2"))
         >>> bishop.valid_pos()
         []
-        >>> board.move_piece(locate("e2"), locate("e3"))
+        >>> board.move_piece(pawn, locate("e3"))
         >>> bishop.valid_pos()
         [e2, d3, c4, b5, a6]
-        >>> board.move_piece(locate("f1"), locate("d3"))
+        >>> board.move_piece(bishop, locate("d3"))
         >>> bishop.valid_pos()
         [e4, f5, g6, h7, c4, b5, a6, e2, f1]
         """
@@ -650,10 +757,10 @@ class Knight(Piece):
         >>> knight = board.get_piece(locate("b1"))
         >>> knight.valid_pos()
         [c3, a3]
-        >>> board.move_piece(locate("b1"), locate("c3"))
+        >>> board.move_piece(knight, locate("c3"))
         >>> knight.valid_pos()
         [e4, d5, b5, a4, b1]
-        >>> board.move_piece(locate("c3"), locate("b5"))
+        >>> board.move_piece(knight, locate("b5"))
         >>> knight.valid_pos()
         [d6, c7, d4, a7, c3, a3]
         """
@@ -710,14 +817,14 @@ class Rook(Piece):
         """
         Returns the valid moves for rook.
         >>> board = Board()
-        >>> board.remove_piece(locate("a2"))
+        >>> board.remove_piece(board.get_piece(locate("a2")))
         >>> rook = board.get_piece(locate("a1"))
         >>> rook.valid_pos()
         [a2, a3, a4, a5, a6, a7]
-        >>> board.move_piece(locate("a1"), locate("a4"))
+        >>> board.move_piece(rook, locate("a4"))
         >>> rook.valid_pos()
         [a5, a6, a7, b4, c4, d4, e4, f4, g4, h4, a3, a2, a1]
-        >>> board.move_piece(locate("a4"), locate("d4"))
+        >>> board.move_piece(rook, locate("d4"))
         >>> rook.valid_pos()
         [d5, d6, d7, e4, f4, g4, h4, d3, c4, b4, a4]
         """
@@ -788,8 +895,8 @@ class King(Piece):
         """
         Returns True if move to position is valid.
         """
-        row_change = abs(position[0] - self.position[0])
-        col_change = abs(position[1] - self.position[1])
+        row_change = abs(position.row - self.position.col)
+        col_change = abs(position.row - self.position.col)
 
         if row_change == 0 and col_change == 0:
             return False
@@ -822,6 +929,5 @@ class King(Piece):
             target = self.board.get_piece(cur)
             if cur.in_range() and (not target or target.color != self.color):
                 valid_pos.append(cur)
-
 
         return valid_pos

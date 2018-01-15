@@ -2,7 +2,8 @@ from chess import *
 
 # TODO: Add more doctests
 # TODO: Make code better
-def process(str_move, board):
+# TODO: Use tokenized array to solve problem.
+def process(str_move, board, turn):
     """
     Takes in move from user and processes it. Validity of move
     is not checked by this function.
@@ -11,15 +12,33 @@ def process(str_move, board):
     1) tokenize string
     2) process individually
     >>> board = Board()
-    >>> process("0-0", board)
+    >>> process("0-0", board, "white")
     King('white', (0, 4)) to (0, 7)
-    >>> process("0-0-0", board)
+    >>> process("0-0-0", board, "white")
     Queen('white', (0, 3)) to (0, 0)
-    >>> process("e4", board)
+    >>> process("e4", board, "white")
     Pawn('white', (1, 4)) to (3, 4)
-    >>> process("Nc3", board)
+    >>> process("Nc3", board, "white")
     Knight('white', (0, 1)) to (2, 2)
     """
+
+    if str_move == "0-0":
+        pass
+    if str_move == "0-0-0":
+        pass
+
+
+    # Tokenize
+    tokenized = []
+    for i in str_move:
+        if i in "1234567890":
+            tokenized[-1] += i
+        else:
+            tokenized.append(i)
+
+
+
+
 
     # Identify piece
     if str_move[0] in ["R", "N", "B", "Q", "K"]:
