@@ -35,45 +35,41 @@ def process(str_move, board, turn):
             tokenized[-1] += i
         else:
             tokenized.append(i)
-
-
-
-
-
-    # Identify piece
-    if str_move[0] in ["R", "N", "B", "Q", "K"]:
-        piece_char = str_move[0]
-    else:
+    
+    piece_char = None
+    d_file = None
+    d_rank = None
+    for i in tokenized:
+        if len(i) == 1:
+            if i == "x":
+                continue
+            if i in "abcdefgh":
+                d_rank = i
+            if i in ["R", "N", "B", "Q", "K"]:
+                piece_char = i
+        if len(i) == 2:
+            if i[0:1] in ["R", "N", "B", "Q", "K"]:
+                piece_char = i
+                d_file = i[1:2]
+            if i[0] in "abcdefgh" and i[1] in "12345678":
+                position = locate(i)
+    if piece_char is None:
         piece_char = "P"
 
-    # Identify location
-    # TODO: Fix since not necessarily true
-    position = ("12345678".index(str_move[-1]), "abcdefgh".index(str_move[-2]))
-
-    # Disambiguate
-    # TODO: Add
-
     # Get all possible pieces
-    possible_pieces = [piece for piece in board.pieces 
+    possible_pieces = [piece for piece in board.pieces[turn] 
             if piece.is_valid(position)\
             and piece.char == piece_char]
-
+    if d_file is not None:
+        possible_pieces = [piece for piece in possible_pieces
+                if "12345678"[piece.position.row] == d_file]
+    if d_rank is not None:
+        possible_pieces = [piece for piece in possible_pieces
+                if "abcdefgh"[piece.position.col] == d_rank]
     if len(possible_pieces) != 1:
         raise ValueError("Your move specifies {0} possible moves.".format(
             len(possible_pieces)))
     return Move(possible_pieces[0], position)
-
-# Move class
-class Move:
-    def __init__(self, piece, position):
-        self.piece = piece
-        self.position = position
-
-    def __str__(self):
-        return "{0} to {1}".format(self.piece, self.position)
-
-    def __repr(self):
-        return str(self)
 
 class Game:
     def __init__(self):

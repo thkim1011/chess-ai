@@ -181,6 +181,9 @@ class Move:
         self.position = position
         self.kill = kill
 
+    def __repr__(self):
+        return repr(self.piece) + " " + repr(self.position)
+
 # Board class
 class Board:
     def __init__(self, empty=False):
@@ -308,6 +311,14 @@ class Board:
             board += border
         board += "\n" + alpha_line
         return board
+    
+    def compute_score(self, color):
+        score = 0
+        for p in self.pieces[color]:
+            score += p.points
+        for p in self.pieces["black" if color == "white" else "black"]:
+            score -= p.points
+        return score
 
     def get_piece(self, position):
         """
@@ -324,6 +335,8 @@ class Board:
         >>> board.get_piece(locate("b1")).position == locate("b1")
         True
         """
+        if not position.in_range():
+            raise ValueError("no piece at {0}".format(position))
         return self.board[position.row][position.col]
 
     def add_piece(self, piece, position):
@@ -385,7 +398,10 @@ class Board:
         >>> board.get_piece(locate("c1")) is None
         True
         """
-        # En passant
+        # Quick Safety Guard
+        assert piece in self.pieces[piece.color]
+
+        # Handle En passant
         if piece.name == "pawn":
             unit = 1 if piece.color == "white" else -1
             start = 1 if piece.color == "white" else 6
@@ -394,7 +410,7 @@ class Board:
         else:
             self.en_passant = None
 
-        # Castling
+        # Handle Castling
         if piece.name == "king":
             self.queen_side_castle[piece.color] = False
             self.king_side_castle[piece.color] = False
@@ -414,30 +430,36 @@ class Board:
                 raise ValueError("move is not en passant")
             target.remove_piece(target)
 
+        # Castle
         if castle:
             if not isinstance(piece, King):
                 raise ValueError("only king may castle")
             row = 0 if piece.color == "white" else 7;
-            if position.col == 3:
+            
+            if position.row != piece.position.row:
+                raise ValueError("cannot castle king to this row")
+            elif position.col == 3:
                 if not self.queen_side_castle[piece.color]:
                     raise ValueError("cannot move since either rook or king\
-                            has previously moved")
-                if board.in_check(piece.color):
-                    raise ValueError("cannot castle out of check")
-                self.board[position.row][2] = piece
-                self.board[position.row][3] = None
-                if board.in_check(piece.color):
-                    raise ValueError("cannot castle through check")
-                self.board[position.row][
-
-                board.move_piece(position + (0, -1))
-                if board.in_check(
-
-
-
-
+                        has previously moved")
+                unit = -1
             elif position.col == 7:
-            
+                if not self.king_side_castle[piece.color]:
+                    raise ValueError("cannot move since either rook or king\
+                            has previously moved")
+                unit == 1
+            else:
+                raise ValueError("cannot castle king to this column")
+
+            if board.in_check(piece.color):
+                raise ValueError("cannot castle out of check")
+            board.move_piece(piece, position + (0, unit))
+            if board.in_check(piece.color):
+                raise ValueError("cannot castle through check")
+            board.move_piece(piece, position + (0, unit))
+            if board.in_check(piece.color):
+                raise ValueError("cannot castle into check")
+            return
 
         # Move piece
         target = self.get_piece(position)
@@ -464,10 +486,7 @@ class Board:
         piece.position = None
         piece.board = None
         self.pieces[piece.color].remove(piece)
-    
-    def undo_move(self):
-
-
+   
     def in_check(self, color):
         """
         Returns true if the given player (color) is currently in check.
@@ -539,6 +558,7 @@ class Piece:
 class Pawn(Piece):
     name = "pawn"
     char = "P"
+    points = 1
 
     def __init__(*args):
         """ Constructs a pawn.
@@ -566,8 +586,8 @@ class Pawn(Piece):
         >>> pawn1.is_valid(locate("d5"))
         False
         >>> board.move_piece(pawn1, locate("d4"))
-        >>> pawn1.is_valid(locate("d5")) # Advance white pawn
-        True
+        >>> pawn2.is_valid(locate("d5")) # Advance white pawn
+        False
         >>> pawn1.is_valid(locate("d6"))
         False
         >>> pawn2.is_valid(locate("e6")) # Advance black pawn
@@ -643,6 +663,8 @@ class Pawn(Piece):
         # Attack
         attack_pos = [self.position + (unit, -1), self.position + (unit, 1)]
         for p in attack_pos:
+            if not p.in_range():
+                continue
             ep = p + (-unit, 0)
             if self.board.get_piece(p)\
                     and self.board.get_piece(p).color != self.color:
@@ -657,6 +679,8 @@ class Pawn(Piece):
 class Bishop(Piece):
     name = "bishop"
     char = "B"
+    points = 3
+
     def __init__(*args):
         Piece.__init__(*args)
 
@@ -721,6 +745,8 @@ class Bishop(Piece):
 class Knight(Piece): 
     name = "knight"
     char = "N"
+    points = 3
+
     def __init__(*args):
         Piece.__init__(*args)
 
@@ -781,6 +807,8 @@ class Knight(Piece):
 class Rook(Piece):
     name = "rook"
     char = "R"
+    points = 5
+
     def __init__(*args):
         Piece.__init__(*args)
 
@@ -844,10 +872,11 @@ class Rook(Piece):
                 valid_pos.append(cur)
         return valid_pos
 
-
 class Queen(Piece):
     name = "queen"
     char = "Q"
+    points = 9
+
     def __init__(*args):
         Piece.__init__(*args)
     
@@ -871,7 +900,7 @@ class Queen(Piece):
             cur = self.position
             while True:
                 cur = cur + unit
-                if not is_in_range(cur):
+                if not cur.in_range():
                     break
                 piece = self.board.get_piece(cur)
                 if piece:
@@ -887,6 +916,8 @@ class Queen(Piece):
 class King(Piece):
     name = "king"
     char = "K"
+    points = 9001
+
     def __init__(*args):
         Piece.__init__(*args)
     
@@ -920,14 +951,17 @@ class King(Piece):
         >>> board.add_piece(Rook("black"), locate("a8"))
         >>> king = board.kings["white"]
         >>> king.valid_pos()
+        [e2, f2, f1, d1, d2]
 
         """
         valid_pos = []
         for unit in [(1, 0), (1, 1), (0, 1), (-1, 1),
                 (-1, 0), (-1, -1), (0, -1), (1, -1)]:
             cur = self.position + unit
+            if not cur.in_range():
+                continue
             target = self.board.get_piece(cur)
-            if cur.in_range() and (not target or target.color != self.color):
+            if not target or target.color != self.color:
                 valid_pos.append(cur)
 
         return valid_pos
