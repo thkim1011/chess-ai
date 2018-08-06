@@ -11,6 +11,8 @@ switch to using numpy for copying array at high speed
 switch BLACK vs WHITE to white = 0, black = 1. 
 """
 
+# Import
+import numpy as np
 
 # Chess Piece Colors
 BLACK = 0
@@ -24,8 +26,6 @@ KNIGHT = 3
 BISHOP = 4
 PAWN = 5
 
-# Import
-import numpy as np
 
 # Functions
 def generate_all_pieces():
@@ -45,6 +45,7 @@ def generate_all_pieces():
                     all_pieces[t][color][row][col] = types[t](color, 
                         Position(row, col))
     return all_pieces
+
 
 def locate(pos_str):
     """
@@ -67,6 +68,7 @@ def locate(pos_str):
     h8
     """
     return Position("12345678".index(pos_str[1]), "abcdefgh".index(pos_str[0]))
+
 
 def piece_is_blocked_straight(piece, position, board):
     """
@@ -98,11 +100,11 @@ def piece_is_blocked_straight(piece, position, board):
         path_length = max(n, m)
 
         for i in range(1, path_length):
-            if board.get_piece(piece.position + (row_unit * i, 
-                col_unit * i)):
+            if board.get_piece(piece.position + (row_unit * i, col_unit * i)):
                 return True
         return False
     return True
+
 
 def piece_is_blocked_diagonal(piece, position, board):
     """
@@ -144,11 +146,11 @@ def piece_is_blocked_diagonal(piece, position, board):
         col_unit = col_change // m
 
         for i in range(1, n):
-            if board.get_piece(piece.position + (row_unit * i, 
-                col_unit * i)):
+            if board.get_piece(piece.position + (row_unit * i, col_unit * i)):
                 return True
         return False
     return True
+
 
 # Position class
 class Position:
@@ -213,18 +215,19 @@ class Position:
         >>> Position(8, 8).in_range()
         False
         """
-        return 0 <= self.row and self.row < 8\
-                and 0 <= self.col and self.col < 8
+        return 0 <= self.row < 8 and 0 <= self.col < 8
+
 
 # Move class
 class Move:
-    def __init__(self, piece, position, kill=None, ep=False, castle=False):
+    def __init__(self, piece, position, kill=None):
         self.piece = piece
         self.position = position
         self.kill = kill
 
     def __repr__(self):
         return repr(self.piece) + " " + repr(self.position)
+
 
 # Board class
 class Board:
@@ -246,13 +249,10 @@ class Board:
         thus is "en passant"-able. That is, a pawn in the correct conditions
         may be able to take the pawn. 
 
-        self.queen_side_castle is a dictionary consisting of two keys WHITE
-        and BLACK which tells whether the respective king may castle through
-        the queen's side.
+        self.queen_side_castle and self.king_side_castle are dictionaries consisting
+        of two keys WHITE and BLACK which tells whether the respective king may
+        castle.
 
-        self.king_side_castle is a dictionary consisting of two keys WHITE
-        and BLACK which tells whether the respective king may castle through
-        his side.
         >>> board = Board()
         >>> print(board.board[0][0].name)
         rook
@@ -453,7 +453,7 @@ class Board:
             if not isinstance(piece, Pawn):
                 raise ValueError("only pawns may move en passant")
             target = self.get_piece(position + (-1, 0))
-            if not target or target is not board.en_passant:
+            if not target or target is not self.en_passant:
                 raise ValueError("move is not en passant")
             target.remove_piece(target)
 
@@ -478,13 +478,13 @@ class Board:
             else:
                 raise ValueError("cannot castle king to this column")
 
-            if board.in_check(piece.color):
+            if self.in_check(piece.color):
                 raise ValueError("cannot castle out of check")
-            board.move_piece(piece, position + (0, unit))
-            if board.in_check(piece.color):
+            self.move_piece(piece, position + (0, unit))
+            if self.in_check(piece.color):
                 raise ValueError("cannot castle through check")
-            board.move_piece(piece, position + (0, unit))
-            if board.in_check(piece.color):
+            self.move_piece(piece, position + (0, unit))
+            if self.in_check(piece.color):
                 raise ValueError("cannot castle into check")
             return
 
@@ -506,7 +506,14 @@ class Board:
         True
         """
         self.board[piece.position.row][piece.position.col] = None
-   
+    
+    def get_moves(self):
+        """
+        Returns a generator.
+        :return:
+        """
+        return
+
     def in_check(self, color):
         """
         Returns true if the given player (color) is currently in check.

@@ -1,16 +1,14 @@
 from chess import *
 
+def heuristic
+
 def minimax(board, depth, turn):
     if depth == 0:
         return board.compute_score(turn), None
 
     maximum = -10000
     best_move = None
-    for i in range(8):
-        for j in range(8):
-            piece = board.board[i][j]
-            if piece == None:
-                continue
+    for piece in board.get_pieces()
             for position in piece.valid_pos(board):
                 new_board = board.copy()
                 new_board.move_piece(new_board.get_piece(piece.position), position)
