@@ -13,10 +13,13 @@ switch BLACK vs WHITE to white = 0, black = 1.
 
 # Import
 import numpy as np
+import utils
+
+from copy import copy
 
 # Chess Piece Colors
-BLACK = 0
-WHITE = 1
+WHITE = 0
+BLACK = 1
 
 # Ches Piece Enumeration
 KING = 0
@@ -36,15 +39,18 @@ def generate_all_pieces():
     board class. 
     """
     # TODO: Some Pawns are useless. Optimize later.
-    types = [King, Queen, Rook, Knight, Bishop, Pawn];
-    all_pieces = np.empty((6, 2, 8, 8), dtype=Piece)
+    types = [King, Queen, Rook, Knight, Bishop, Pawn]
+    pieces = np.empty((6, 2, 8, 8), dtype=Piece)
     for color in [BLACK, WHITE]:
         for t in range(6):
             for row in range(8):
                 for col in range(8):
-                    all_pieces[t][color][row][col] = types[t](color, 
-                        Position(row, col))
-    return all_pieces
+                    pieces[t][color][row][col] = types[t](color, Position(row, col))
+    return pieces
+
+
+def locate_piece(type, color, position):
+    return all_pieces[type][color][position.row][position.col]
 
 
 def locate(pos_str):
@@ -228,6 +234,8 @@ class Move:
     def __repr__(self):
         return repr(self.piece) + " " + repr(self.position)
 
+    def __eq__(self, other):
+        return self.piece == other.piece and self.position == other.position
 
 # Board class
 class Board:
@@ -257,7 +265,7 @@ class Board:
         >>> print(board.board[0][0].name)
         rook
         >>> print(board.board[0][0].color)
-        1
+        0
         >>> print(board.board[0][1].name)
         knight
         >>> print(board.board[0][2].name)
@@ -267,14 +275,15 @@ class Board:
         >>> print(board.board[0][4].name)
         king
         >>> print(board.board[7][0].color)
-        0
+        1
         """
 
-        self.board = np.empty([8, 8], dtype=Piece)
-        self.kings = {}
+        self.board = [[None] * 8, [None] * 8, [None] * 8, [None] * 8,
+                      [None] * 8, [None] * 8, [None] * 8, [None] * 8]
+        self.kings = [None, None]
         self.en_passant = None
-        self.queen_side_castle = {WHITE: True, BLACK: True}
-        self.king_side_castle = {WHITE: True, BLACK: True}
+        self.queen_side_castle = [True, True]
+        self.king_side_castle = [True, True]
        
         if not empty:
             # Populate board
@@ -347,6 +356,21 @@ class Board:
         return board
     
     def compute_score(self, color):
+        """
+        Computes the score of the board given the color.
+        :param color:
+        :return:
+        >>> board = Board()
+        >>> board.compute_score(0)
+        0
+        >>> board.compute_score(1)
+        0
+        >>> board.remove_piece(locate("a2"))
+        >>> board.compute_score(0)
+        -1
+        >>> board.compute_score(1)
+        1
+        """
         score = 0
         for i in range(8):
             for j in range(8):
@@ -357,7 +381,7 @@ class Board:
                     score += p.points
                 else:
                     score -= p.points
-            return score
+        return score
 
     def get_piece(self, position):
         """
@@ -395,7 +419,7 @@ class Board:
     
     # TODO: Add more doctests and thoroughly describe what happens
     # in the docs.
-    def move_piece(self, piece, position, ep=False, castle=False, promote=False):
+    def move_piece(self, piece, position, ep=False, castle=False, promote=None):
         """
         Moves piece from initial to final position. Returns new piece.
         Note that pieces should be immutable.
@@ -450,19 +474,17 @@ class Board:
         
         # En passant
         if ep:
-            if not isinstance(piece, Pawn):
+            if piece.index != PAWN:
                 raise ValueError("only pawns may move en passant")
             target = self.get_piece(position + (-1, 0))
             if not target or target is not self.en_passant:
                 raise ValueError("move is not en passant")
-            target.remove_piece(target)
+            target.remove_piece(target.position)
 
         # Castle
         if castle:
-            if not isinstance(piece, King):
+            if piece.index != KING:
                 raise ValueError("only king may castle")
-            row = 0 if piece.color == WHITE else 7;
-            
             if position.row != piece.position.row:
                 raise ValueError("cannot castle king to this row")
             elif position.col == 3:
@@ -474,7 +496,7 @@ class Board:
                 if not self.king_side_castle[piece.color]:
                     raise ValueError("cannot move since either rook or king\
                             has previously moved")
-                unit == 1
+                unit = 1
             else:
                 raise ValueError("cannot castle king to this column")
 
@@ -491,28 +513,46 @@ class Board:
         # Move piece
         target = self.get_piece(position)
         if target:
-            self.remove_piece(target)
+            self.remove_piece(target.position)
         self.board[position.row][position.col] = all_pieces[piece.index][piece.color][position.row][position.col]
         self.board[piece.position.row][piece.position.col] = None
 
         return self.board[position.row][position.col]
 
-    def remove_piece(self, piece):
+    def remove_piece(self, position):
         """
         Removes piece from board and returns a pointer to the piece.
         >>> board = Board()
-        >>> piece = board.remove_piece(board.get_piece(locate("e2")))
+        >>> board.remove_piece(locate("e2"))
         >>> board.get_piece(locate("e2")) is None
         True
         """
-        self.board[piece.position.row][piece.position.col] = None
+        self.board[position.row][position.col] = None
     
-    def get_moves(self):
+    def get_moves(self, turn, heuristic=None):
         """
         Returns a generator.
         :return:
+        TODO IMPROVE !!!! AHHHH
         """
-        return
+        if heuristic is None:
+            heuristic = lambda a: 0
+        priority_queue = utils.PriorityQueue()
+        for i in range(8):
+            for j in range(8):
+                piece = self.get_piece(Position(i, j))
+                if not piece or not piece.color == turn:
+                    continue
+                positions = piece.valid_pos(self)
+                for p in positions:
+                    move = Move(piece, p)
+                    board_with_move = self.copy()
+                    board_with_move.move_piece(move.piece, move.position)
+                    priority_queue.queue(
+                        heuristic(board_with_move),
+                        (move, board_with_move))
+        while not priority_queue.is_empty() > 0:
+            yield priority_queue.pop()
 
     def in_check(self, color):
         """
@@ -539,15 +579,18 @@ class Board:
         return False
 
     def copy(self):
+        """
+        TODO ADD DOCTESTS AND DOCSTRING
+        :return:
+        """
         board = Board(empty=True)
-        board.board = self.board.copy()
+        board.board = []
+        for row in self.board:
+            board.board.append(row.copy())
         board.en_passant = self.en_passant
-        board.kings = {BLACK : self.kings[BLACK],
-                WHITE : self.kings[WHITE]}
-        board.king_side_castle = {WHITE : self.king_side_castle[WHITE],
-                BLACK : self.king_side_castle[BLACK]}
-        board.queen_side_castle = {WHITE : self.queen_side_castle[WHITE],
-                BLACK : self.queen_side_castle[BLACK]}
+        board.kings = self.kings.copy()
+        board.king_side_castle = self.king_side_castle.copy()
+        board.queen_side_castle = self.queen_side_castle.copy()
         return board
     
 # Pieces
@@ -563,7 +606,7 @@ class Piece:
         self.board is the board that the piece belongs to.
         >>> piece = Piece(BLACK, locate("a1"))
         >>> piece.color
-        0
+        1
         """
         assert color == BLACK or color == WHITE
         self.color = color
@@ -580,7 +623,7 @@ class Piece:
         >>> print(Piece(WHITE, locate("a1")))
         white Piece at a1
         """
-        return "{0} {1} at {2}".format("white" if self.color else "black",
+        return "{0} {1} at {2}".format("black" if self.color else "white",
                 self.__class__.__name__, repr(self.position))
 
     def __repr__(self):
@@ -602,7 +645,7 @@ class Pawn(Piece):
         >>> pawn.name
         'pawn'
         >>> pawn.color
-        0
+        1
         """
         Piece.__init__(*args)
     
@@ -714,7 +757,7 @@ class Bishop(Piece):
     name = "bishop"
     char = "B"
     points = 3
-    index = 4
+    index = BISHOP
 
     def __init__(*args):
         Piece.__init__(*args)
@@ -781,7 +824,7 @@ class Knight(Piece):
     name = "knight"
     char = "N"
     points = 3
-    index = 3
+    index = KNIGHT
 
     def __init__(*args):
         Piece.__init__(*args)
@@ -844,7 +887,7 @@ class Rook(Piece):
     name = "rook"
     char = "R"
     points = 5
-    index = 2
+    index = ROOK
 
     def __init__(*args):
         Piece.__init__(*args)
@@ -882,7 +925,7 @@ class Rook(Piece):
         """
         Returns the valid moves for rook.
         >>> board = Board()
-        >>> board.remove_piece(board.get_piece(locate("a2")))
+        >>> board.remove_piece(locate("a2"))
         >>> rook = board.get_piece(locate("a1"))
         >>> rook.valid_pos(board)
         [a2, a3, a4, a5, a6, a7]
@@ -913,7 +956,7 @@ class Queen(Piece):
     name = "queen"
     char = "Q"
     points = 9
-    index = 1
+    index = QUEEN
 
     def __init__(*args):
         Piece.__init__(*args)
@@ -955,7 +998,7 @@ class King(Piece):
     name = "king"
     char = "K"
     points = 9001
-    index = 0
+    index = KING
 
     def __init__(*args):
         Piece.__init__(*args)
@@ -1005,4 +1048,5 @@ class King(Piece):
 
         return valid_pos
 
-all_pieces = generate_all_pieces();
+
+all_pieces = generate_all_pieces()
