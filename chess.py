@@ -121,9 +121,9 @@ def piece_is_blocked_diagonal(piece, position, board):
     is "blocked"
     >>> board = Board(empty=True)
     >>> queen = Queen(WHITE, locate("d1"))
-    >>> board.add_piece(queen, locate("d1"))
-    >>> board.add_piece(Pawn(BLACK, locate("h5")), locate("h5"))
-    >>> board.add_piece(Pawn(WHITE, locate("c2")), locate("c2")) # Set up board
+    >>> board.add_piece(queen)
+    >>> board.add_piece(Pawn(BLACK, locate("h5")))
+    >>> board.add_piece(Pawn(WHITE, locate("c2"))) # Set up board
     >>> piece_is_blocked_diagonal(queen, locate("d1"), board) # Not valid move
     True
     >>> piece_is_blocked_diagonal(queen, locate("e2"), board) # Valid move
@@ -226,13 +226,14 @@ class Position:
 
 # Move class
 class Move:
-    def __init__(self, piece, position, kill=None):
+    def __init__(self, piece, position, kill=None, next=None):
         self.piece = piece
         self.position = position
         self.kill = kill
+        self.next = next
 
     def __repr__(self):
-        return repr(self.piece) + " " + repr(self.position)
+        return repr(self.piece) + " to " + repr(self.position) + ", " + repr(self.next)
 
     def __eq__(self, other):
         return self.piece == other.piece and self.position == other.position
@@ -287,27 +288,27 @@ class Board:
        
         if not empty:
             # Populate board
-            self.add_piece(all_pieces[ROOK][WHITE][0][0], Position(0, 0))
-            self.add_piece(all_pieces[KNIGHT][WHITE][0][1], Position(0, 1))
-            self.add_piece(all_pieces[BISHOP][WHITE][0][2], Position(0, 2))
-            self.add_piece(all_pieces[QUEEN][WHITE][0][3], Position(0, 3))
-            self.add_piece(all_pieces[KING][WHITE][0][4], Position(0, 4))
-            self.add_piece(all_pieces[BISHOP][WHITE][0][5], Position(0, 5))
-            self.add_piece(all_pieces[KNIGHT][WHITE][0][6], Position(0, 6))
-            self.add_piece(all_pieces[ROOK][WHITE][0][7], Position(0, 7))
+            self.add_piece(all_pieces[ROOK][WHITE][0][0])
+            self.add_piece(all_pieces[KNIGHT][WHITE][0][1])
+            self.add_piece(all_pieces[BISHOP][WHITE][0][2])
+            self.add_piece(all_pieces[QUEEN][WHITE][0][3])
+            self.add_piece(all_pieces[KING][WHITE][0][4])
+            self.add_piece(all_pieces[BISHOP][WHITE][0][5])
+            self.add_piece(all_pieces[KNIGHT][WHITE][0][6])
+            self.add_piece(all_pieces[ROOK][WHITE][0][7])
 
-            self.add_piece(all_pieces[ROOK][BLACK][7][0], Position(7, 0))
-            self.add_piece(all_pieces[KNIGHT][BLACK][7][1], Position(7, 1))
-            self.add_piece(all_pieces[BISHOP][BLACK][7][2], Position(7, 2))
-            self.add_piece(all_pieces[QUEEN][BLACK][7][3], Position(7, 3))
-            self.add_piece(all_pieces[KING][BLACK][7][4], Position(7, 4))
-            self.add_piece(all_pieces[BISHOP][BLACK][7][5], Position(7, 5))
-            self.add_piece(all_pieces[KNIGHT][BLACK][7][6], Position(7, 6))
-            self.add_piece(all_pieces[ROOK][BLACK][7][7], Position(7, 7))
+            self.add_piece(all_pieces[ROOK][BLACK][7][0])
+            self.add_piece(all_pieces[KNIGHT][BLACK][7][1])
+            self.add_piece(all_pieces[BISHOP][BLACK][7][2])
+            self.add_piece(all_pieces[QUEEN][BLACK][7][3])
+            self.add_piece(all_pieces[KING][BLACK][7][4])
+            self.add_piece(all_pieces[BISHOP][BLACK][7][5])
+            self.add_piece(all_pieces[KNIGHT][BLACK][7][6])
+            self.add_piece(all_pieces[ROOK][BLACK][7][7])
 
             for i in range(8):
-                self.add_piece(all_pieces[PAWN][WHITE][1][i], Position(1, i))
-                self.add_piece(all_pieces[PAWN][BLACK][6][i], Position(6, i))
+                self.add_piece(all_pieces[PAWN][WHITE][1][i])
+                self.add_piece(all_pieces[PAWN][BLACK][6][i])
 
     def __str__(self):
         """
@@ -400,18 +401,18 @@ class Board:
             raise ValueError("no piece at {0}".format(position))
         return self.board[position.row][position.col]
 
-    def add_piece(self, piece, position):
+    def add_piece(self, piece):
         """
         Adds piece on board at given position.
         >>> board = Board(empty=True)
-        >>> board.add_piece(Pawn(WHITE, locate("d4")), locate("d4"))
+        >>> board.add_piece(Pawn(WHITE, locate("d4")))
         >>> pawn = board.get_piece(locate("d4"))
         >>> pawn.name
         'pawn'
         >>> pawn.position
         d4
         """
-        self.board[position.row][position.col] = piece
+        self.board[piece.position.row][piece.position.col] = piece
 
         # Record King
         if piece.name == "king":
@@ -592,9 +593,12 @@ class Board:
         board.king_side_castle = self.king_side_castle.copy()
         board.queen_side_castle = self.queen_side_castle.copy()
         return board
-    
+
+
 # Pieces
 class Piece:
+    char = "*"
+
     def __init__(self, color, position):
         """
         Constructs a piece. A piece has several important instance variables.
@@ -618,13 +622,14 @@ class Piece:
         the form "Piece_Name(color, position)". For example, a Rook object
         with color BLACK and position a1 will be represented as
         "Rook(BLACK, a1)".
+        TODO: Update doctext
         >>> print(Piece(BLACK, locate("a8")))
-        black Piece at a8
+        b*a8
         >>> print(Piece(WHITE, locate("a1")))
-        white Piece at a1
+        w*a1
         """
-        return "{0} {1} at {2}".format("black" if self.color else "white",
-                self.__class__.__name__, repr(self.position))
+        return "{0}{1}{2}".format("b" if self.color else "w",
+                                  self.char, repr(self.position))
 
     def __repr__(self):
         """
@@ -632,6 +637,7 @@ class Piece:
         the __str__ method.
         """
         return Piece.__str__(self)
+
 
 class Pawn(Piece):
     name = "pawn"
@@ -896,9 +902,9 @@ class Rook(Piece):
         """Returns True if move to position is valid
         >>> board = Board(empty=True)
         >>> rook = Rook(BLACK, locate("d4"))
-        >>> board.add_piece(rook, locate("d4"))
-        >>> board.add_piece(Pawn(WHITE, locate("d2")), locate("d2"))
-        >>> board.add_piece(Pawn(WHITE, locate("d2")), locate("b4"))
+        >>> board.add_piece(rook)
+        >>> board.add_piece(Pawn(WHITE, locate("d2")))
+        >>> board.add_piece(Pawn(WHITE, locate("b4")))
         >>> rook.is_valid(locate("d2"), board)
         True
         >>> rook.is_valid(locate("d1"), board)
@@ -1004,12 +1010,21 @@ class King(Piece):
         Piece.__init__(*args)
     
     # TODO: Finish doctests
-    def is_valid(self,position, board):
+    def is_valid(self, position, board):
         """
         Returns True if move to position is valid.
+        >>> board = Board()
+        >>> board.remove_piece(locate("e2"))
+        >>> king = board.kings[WHITE]
+        >>> king.is_valid(locate("e2"), board)
+        True
+        >>> king.is_valid(locate("e3"), board)
+        False
+        >>> king.is_valid(locate("d1"), board)
+        False
         """
-        row_change = abs(position.row - self.position.col)
-        col_change = abs(position.row - self.position.col)
+        row_change = abs(position.row - self.position.row)
+        col_change = abs(position.col - self.position.col)
 
         if row_change == 0 and col_change == 0:
             return False
@@ -1027,14 +1042,13 @@ class King(Piece):
         """
         Returns the valid positions for the king.
         >>> board = Board(empty=True)
-        >>> board.add_piece(Rook(WHITE, locate("a1")), locate("a1"))
-        >>> board.add_piece(Rook(WHITE, locate("h1")), locate("h1"))
-        >>> board.add_piece(King(WHITE, locate("e1")), locate("e1"))
-        >>> board.add_piece(Rook(BLACK, locate("a8")), locate("a8"))
+        >>> board.add_piece(Rook(WHITE, locate("a1")))
+        >>> board.add_piece(Rook(WHITE, locate("h1")))
+        >>> board.add_piece(King(WHITE, locate("e1")))
+        >>> board.add_piece(Rook(BLACK, locate("a8")))
         >>> king = board.kings[WHITE]
         >>> king.valid_pos(board)
         [e2, f2, f1, d1, d2]
-
         """
         valid_pos = []
         for unit in [(1, 0), (1, 1), (0, 1), (-1, 1),

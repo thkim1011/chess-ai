@@ -5,36 +5,38 @@ ai.py -- Defines functions for running minimax and minimax with alpha beta pruni
 from chess import *
 
 
-def minimax(board, depth, turn):
+def minimax(board, depth, turn, heuristic=None):
     if depth == 0:
         return board.compute_score(turn), None
 
     maximum = -10000
     best_move = None
-    for m in board.get_moves(turn):
-        if m[1].in_check(turn):
+    for move, b in board.get_moves(turn, heuristic):
+        if b.in_check(turn):
             continue
-        opp_score, _ = minimax(m[1], depth - 1, 1 - turn)
+        opp_score, prev_move = minimax(b, depth - 1, 1 - turn)
         if -opp_score > maximum:
             maximum = -opp_score
-            best_move = m[0]
+            best_move = move
+            best_move.next = prev_move
     return maximum, best_move
 
 
-def minimax_with_pruning(board, depth, alpha, beta, turn):
+def minimax_with_pruning(board, depth, alpha, beta, turn, heuristic=None):
     if depth == 0:
         return board.compute_score(turn), None
     maximum = -10000
     best_move = None
-    for m in board.get_moves(turn):
-        if m[1].in_check(turn):
+    for move, b in board.get_moves(turn):
+        if b.in_check(turn):
             continue
-        opp_score, _ = minimax_with_pruning(m[1], depth - 1,
-                                            -beta, -alpha, 1 - turn)
+        opp_score, prev_move = minimax_with_pruning(b, depth - 1,
+                                                    -beta, -alpha, 1 - turn, heuristic)
         if -opp_score > maximum:
             maximum = -opp_score
-            best_move = m[0]
+            best_move = move
+            best_move.next = prev_move
         alpha = max(alpha, -opp_score)
         if alpha >= beta:
-            return maximum, best_move
+            break
     return maximum, best_move
