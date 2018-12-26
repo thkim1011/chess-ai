@@ -3,7 +3,9 @@ ai.py -- Defines functions for running minimax and minimax with alpha beta pruni
 """
 
 from chess import *
+import math
 
+gamma = 0.99
 
 def minimax(board, depth, turn, heuristic=None):
     if depth == 0:
@@ -15,14 +17,17 @@ def minimax(board, depth, turn, heuristic=None):
         if b.in_check(turn):
             continue
         opp_score, prev_move = minimax(b, depth - 1, 1 - turn)
-        if -opp_score > maximum:
+        opp_score *= gamma # Make sooner checkmates higher worth
+        if -opp_score >= maximum:
             maximum = -opp_score
             best_move = move
             best_move.next = prev_move
     return maximum, best_move
 
 
-def minimax_with_pruning(board, depth, alpha, beta, turn, heuristic=None):
+def minimax_with_pruning(board, depth, 
+        turn, alpha=-math.inf, beta=math.inf, 
+        heuristic=None):
     if depth == 0:
         return board.compute_score(turn), None
     maximum = -10000

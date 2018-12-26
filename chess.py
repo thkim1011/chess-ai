@@ -25,8 +25,8 @@ BLACK = 1
 KING = 0
 QUEEN = 1
 ROOK = 2
-KNIGHT = 3
-BISHOP = 4
+BISHOP = 3
+KNIGHT = 4
 PAWN = 5
 
 
@@ -240,6 +240,9 @@ class Move:
 
 # Board class
 class Board:
+    # For testing purposes:
+    debug = False
+
     def __init__(self, empty=False):
         """ 
         Constructs a board with pieces in initial position.
@@ -347,6 +350,8 @@ class Board:
             for j in self.board[i - 1]:
                 if j is None:
                     line += "   |"
+                elif Piece.use_unicode:
+                    line += " " + j.get_unicode() + " |"
                 elif j.color == WHITE:
                     line += " " + j.char.lower() + " |"
                 else:
@@ -418,6 +423,13 @@ class Board:
         if piece.name == "king":
             self.kings[piece.color] = piece
     
+    def make_move(self, move):
+        """
+        Takes a move object and applies the move to the current board.
+        """
+        self.move_piece(move.piece, move.position)
+        
+
     # TODO: Add more doctests and thoroughly describe what happens
     # in the docs.
     def move_piece(self, piece, position, ep=False, castle=False, promote=None):
@@ -517,7 +529,12 @@ class Board:
             self.remove_piece(target.position)
         self.board[position.row][position.col] = all_pieces[piece.index][piece.color][position.row][position.col]
         self.board[piece.position.row][piece.position.col] = None
-
+        if piece.index == KING:
+            self.kings[piece.color] = self.board[position.row][position.col]
+        # DEBUG!!!
+        if Board.debug:
+            assert(self.is_consistent)
+        
         return self.board[position.row][position.col]
 
     def remove_piece(self, position):
@@ -579,6 +596,14 @@ class Board:
                     return True
         return False
 
+    def is_consistent(self):
+        for i in range(8):
+            for j in range(8):
+                piece = self.board[i][j]
+                if piece is not None:
+                    assert(piece.position.row == i)
+                    assert(piece.position.col == j)
+
     def copy(self):
         """
         TODO ADD DOCTESTS AND DOCSTRING
@@ -598,6 +623,7 @@ class Board:
 # Pieces
 class Piece:
     char = "*"
+    use_unicode = True
 
     def __init__(self, color, position):
         """
@@ -630,6 +656,13 @@ class Piece:
         """
         return "{0}{1}{2}".format("b" if self.color else "w",
                                   self.char, repr(self.position))
+
+    def get_unicode(self):
+        init = 0x2654
+        if self.color == BLACK:
+            init += 6
+        init += self.index
+        return chr(init)
 
     def __repr__(self):
         """

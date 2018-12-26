@@ -22,10 +22,12 @@ class TestAI(unittest.TestCase):
         board1.move_piece(knight, chess.locate("f6"))
         _, move = ai.minimax(board1, 3, 1)
         self.assertEqual(move, chess.Move(board1.get_piece(chess.locate("f6")), chess.locate("e4")))
-        _, move = ai.minimax_with_pruning(board1, 3, -1000, 1000, 1)
+        _, move = ai.minimax_with_pruning(board1, 3, 1, alpha=-1000, 
+                beta=1000)
         self.assertEqual(move, chess.Move(board1.get_piece(chess.locate("f6")), chess.locate("e4")))
         _, move = ai.minimax(board1, 3, 0)
-        _, move = ai.minimax_with_pruning(board1, 3, -1000, 1000, 0)
+        _, move = ai.minimax_with_pruning(board1, 0, 3, alpha=-1000, 
+                beta=1000)
         board1.move_piece(board1.get_piece(chess.locate("f1")), chess.locate("a6"))
         _, move = ai.minimax(board1, 3, 1)
         self.assertEqual(move, chess.Move(board1.get_piece(chess.locate("b8")), chess.locate("a6")))
@@ -98,6 +100,9 @@ class TestAI(unittest.TestCase):
         print(ai.minimax(board3, 3, BLACK))
         print(BLACK)
 
+    def test_endgame(self):
+        pass
+
     def test(self):
         board2 = chess.Board()
         print(board2)
@@ -105,7 +110,8 @@ class TestAI(unittest.TestCase):
         depth = 3
         turn = 0
         for i in range(10):
-            _, move = ai.minimax_with_pruning(board2, depth, -1000, 1000, turn)
+            _, move = ai.minimax_with_pruning(board2, depth, turn, 
+                    alpha=-1000, beta=1000)
             board2.move_piece(move.piece, move.position)
             print(board2)
             turn = 1 - turn

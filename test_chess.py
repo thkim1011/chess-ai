@@ -41,6 +41,18 @@ class TestBoard(unittest.TestCase):
         board.move_piece(board.get_piece(chess.locate("b1")), chess.locate("c3"))
         print(board)
 
+    def test_en_passant(self):
+        board = chess.Board()
+
+        white_pawn = board.get_piece(chess.locate("e2"))
+        black_pawn = board.get_piece(chess.locate("d7"))
+
+        board.move_piece(white_pawn, chess.locate("e5"))
+        board.move_piece(black_pawn, chess.locate("d5"))
+        
+        self.assertTrue(board.en_passant == black_pawn)
+        self.assertTrue(white_pawn.is_valid(chess.locate("d6"), board))
+        self.assertTrue(chess.locate("d6") in white_pawn.valid_pos(board))
 
 if __name__ == "__main__":
     unittest.main()
