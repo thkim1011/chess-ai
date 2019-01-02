@@ -1,4 +1,4 @@
-from chess import *
+from chess.chess import *
 
 # TODO: Add more doctests
 # TODO: Make code better

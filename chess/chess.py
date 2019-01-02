@@ -7,13 +7,13 @@ Some important aspects:
 
 
 TODO:
-switch to using numpy for copying array at high speed
 switch BLACK vs WHITE to white = 0, black = 1. 
 """
 
 # Import
+import chess.utils
 import numpy as np
-import utils
+import json
 
 from copy import copy
 
@@ -226,11 +226,21 @@ class Position:
 
 # Move class
 class Move:
-    def __init__(self, piece, position, kill=None, next=None):
+    def __init__(self, piece, position, ep=False, castle=False, promote=None):
         self.piece = piece
         self.position = position
-        self.kill = kill
-        self.next = next
+        self.ep = ep
+        self.castle = castle
+        self.promote = promote
+
+    def from_json(json):
+        piece = Piece.from_json(json["piece"])
+        position = Position(json["position"]["row"],
+                json["position"]["col"])
+        ep = json["ep"]
+        castle = json["castle"]
+        promote = json["promote"]
+        return Move(piece, position, ep=ep, castle=castle, promote=promote)
 
     def __repr__(self):
         return repr(self.piece) + " to " + repr(self.position) + ", " + repr(self.next)
@@ -243,7 +253,7 @@ class Board:
     # For testing purposes:
     debug = False
 
-    def __init__(self, empty=False):
+    def __init__(self, empty=False, json=None):
         """ 
         Constructs a board with pieces in initial position.
         If empty is True, then board will not have any pieces.
@@ -281,6 +291,17 @@ class Board:
         >>> print(board.board[7][0].color)
         1
         """
+        if json:
+            self.board = json["board"]
+            self.kings = json["kings"]
+            self.en_passant = Piece.from_json(json["en_passant"])
+            self.queen_side_castle = json["queen_side_castle"]
+            self.king_side_castle = json["king_side_castle"]
+
+            for i in range(8):
+                for j in range(8):
+                    self.board[i][j] = Piece.from_json(self.board[i][j])
+            return 
 
         self.board = [[None] * 8, [None] * 8, [None] * 8, [None] * 8,
                       [None] * 8, [None] * 8, [None] * 8, [None] * 8]
@@ -427,30 +448,54 @@ class Board:
         """
         Takes a move object and applies the move to the current board.
         """
-        self.move_piece(move.piece, move.position)
-        
+        self.move_piece(move.piece, 
+                move.position, 
+                ep=move.ep, 
+                castle=move.castle, 
+                promote=move.promote)
 
     # TODO: Add more doctests and thoroughly describe what happens
     # in the docs.
     def move_piece(self, piece, position, ep=False, castle=False, promote=None):
         """
         Moves piece from initial to final position. Returns new piece.
-        Note that pieces should be immutable.
-
-        The goal of this method is so that when we call move_piece on piece
-        and position such that piece.is_valid(position) and not board.in_check()
+        Note that pieces should be immutable. The ultimate goal of this 
+        method is so that when we call move_piece on piece and position 
+        such that piece.is_valid(position) and not board.in_check()
         then the resulting game should be completely valid. The condition 
-        that piece.is_valid is called separately relaxes some of the rules 
+        that piece.is_valid is called separately relaxes some of the rules
         and allows for moving pieces in a free style.
 
-        The analogy could be made that move_piece is to a real player moving
-        chess pieces in an arbitrary fashion, while following the rules 
-        leads to a valid chess game.
+        The analogy could be made that move_piece is to a real player
+        moving chess pieces in an arbitrary fashion, while following the 
+        rules leads to a valid chess game.
 
-        In addition, board.in_check() should be called after the move is made
-        since the move must be made in order to check for a check.
+        In addition, board.in_check() should be called after the move is 
+        made since the move must be made in order to check for a check.
 
-        Castling is an exception. When castling is specified, then 
+        Castling is an exception. When castling is specified, then the 
+        method will make sure that King is not in check, does not go 
+        through check, or does not go into check. When the pawn moves 
+        en passant, then certain checks are done, but the method does 
+        not ensure that the board is not in check. Promotion is similar.
+
+        Parameters:
+            piece -- The piece to be moved. Is an instace of Piece or
+                its subclass.
+            position -- The position to move to. Is an instacnce of 
+                Position. 
+        Optional Parameters:
+            ep -- Whether the move is an en passant or not. True or False.
+            castle -- Whether to castle or not. True or False.
+            promote -- Piece to promote to, if the move is a promotion. 
+                Default value is None.
+
+        TODO: Currently, because all pieces are instantiated only once,
+        it makes no sense to pass in piece and position. It seems to be
+        more logical to pass in inital_position and final_position.
+        I will probably need to think more about the whole structure of 
+        this program and think about how to make this change.
+
         >>> board = Board()
         >>> bishop = board.get_piece(locate("c1"))
         >>> bishop.position
@@ -627,11 +672,13 @@ class Piece:
 
     def __init__(self, color, position):
         """
-        Constructs a piece. A piece has several important instance variables.
+        Constructs a piece. A piece has several important instance 
+        variables.
 
         self.color is the piece's color.
 
-        self.position is the piece's position, an instance of the Position class.
+        self.position is the piece's position, an instance of the 
+        Position class.
 
         self.board is the board that the piece belongs to.
         >>> piece = Piece(BLACK, locate("a1"))
@@ -641,6 +688,20 @@ class Piece:
         assert color == BLACK or color == WHITE
         self.color = color
         self.position = position
+        self.index = self.index
+
+    def from_json(json): 
+        """Constructs a piece from the "json" representation."""
+        if not json:
+            return None
+        types = [King, Queen, Rook, Bishop, Knight, Pawn]
+        color = json["color"]
+        position = Position(json["position"]["row"],
+                json["position"]["col"])
+        index = json["index"]
+        
+        piece = types[index](color, position)
+        return piece
 
     def __str__(self):
         """

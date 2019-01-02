@@ -2,7 +2,7 @@
 ai.py -- Defines functions for running minimax and minimax with alpha beta pruning.
 """
 
-from chess import *
+from chess.chess import *
 import math
 
 gamma = 0.99

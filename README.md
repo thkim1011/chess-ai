@@ -1,6 +1,6 @@
 # Chess AI
 
-Provides a very basic chess game and AI. 
+Provides a very basic chess game and AI.
 
 # Very Quick Tutorial
 

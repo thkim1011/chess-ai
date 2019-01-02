@@ -1,9 +1,9 @@
-import chess
+import chess.chess
 import numpy as np
 import numpy.random as random
 import itertools as it
 import time
-import ai
+import chess.ai
 
 """
 This file is for training the heuristic. First, we describe 
